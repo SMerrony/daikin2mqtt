@@ -1,0 +1,22 @@
+# All configuration options
+
+[mqtt]
+base_topic = "daikin2mqtt"          # Required: MQTT base topic
+broker = "localhost"                # Required: MQTT broker
+port = 1883                         # Required: MQTT port
+# user = "my_user"                  # Optional: MQTT broker user (default: nothing)
+# password = "my_password"          # Optional: MQTT broker password (default: nothing)
+
+[daikin]
+discovery_timeout = 5               # Required: No. secs to wait for units to respond
+update_period = 60                  # Required: Pause (s) between fetching updates from inverters
+
+[[inverter]]
+  mac = "C0E434E69F27"              # Required: The unpunctuated MAC address of the unit
+  friendly_name = "Steve_Office"    # Required: Will form part of the MQTT topic
+  
+[[inverter]]
+  mac = "C0E434E60BC6"             
+  friendly_name = "Spare_Bedroom"   
+
+  
