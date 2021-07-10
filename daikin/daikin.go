@@ -17,12 +17,17 @@
 package daikin
 
 import (
+	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/SMerrony/daikin2mqtt/mqtt"
 )
 
 type DaikinConfT struct {
@@ -73,11 +78,11 @@ type BasicInfoT struct {
 type ControlInfoT struct {
 	retOK       bool
 	power       bool
-	mode        int
+	mode        string
 	setTemp     int
 	setHumidity int
-	fanRate     int
-	fanSweep    int
+	fanRate     string
+	fanSweep    string
 }
 
 type SensorInfoT struct {
@@ -99,11 +104,14 @@ type InverterT struct {
 }
 
 type DaikinT struct {
-	conf      DaikinConfT
-	inverters map[string]InverterT
+	conf          DaikinConfT
+	inverters     map[string]InverterT
+	httpReqClient *http.Client
+	publishChan   chan mqtt.MessageT
 }
 
-func Create(dConf DaikinConfT, iConf []InverterConfT) (d DaikinT) {
+// Create sets up a new DaikinT struct and adds any configured inverters
+func Create(dConf DaikinConfT, iConf []InverterConfT, publishChan chan mqtt.MessageT) (d DaikinT) {
 	d.conf = dConf
 	d.inverters = make(map[string]InverterT)
 	for _, c := range iConf {
@@ -118,6 +126,10 @@ func Create(dConf DaikinConfT, iConf []InverterConfT) (d DaikinT) {
 		d.inverters[c.Mac] = i
 	}
 	log.Printf("INFO: %d Inverters found in configuration", len(d.inverters))
+	d.httpReqClient = &http.Client{
+		Timeout: time.Second, // TODO parm?
+	}
+	d.publishChan = publishChan
 	return d
 }
 
@@ -175,6 +187,136 @@ func parseBasicInfo(buffer []byte) (BI BasicInfoT) {
 	return BI
 }
 
+var modeArr = [...]string{"AUTO", "AUTO 1", "DEHUMIDIFY", "COOL", "HEAT", "MODE 5", "FAN", "AUTO 2"}
+var fanRateMap = map[string]string{
+	"A": "AUTO",
+	"B": "SILENT",
+	"3": "LEVEL_1",
+	"4": "LEVEL_2",
+	"5": "LEVEL_3",
+	"6": "LEVEL_4",
+	"7": "LEVEL_5"}
+var fanDirArr = [...]string{"OFF", "VERTICAL", "HORIZONTAL", "BOTH"}
+
+func parseControlInfo(buffer []byte) (CI ControlInfoT) {
+	var key, val string
+	var i64 int64
+	var f64 float64
+	inKey := true
+	for i, c := range buffer {
+		if c == '=' { // switch from key to value collection
+			inKey = false
+		} else if (c == ',') || (i == len(buffer)-1) { // we should have a complete key and value
+			switch key {
+			case "ret":
+				CI.retOK = (val == "OK") // uppercase response from Daikin
+			case "pow":
+				CI.power = (val == "1")
+			case "mode":
+				i64, _ = strconv.ParseInt(val, 10, 8)
+				CI.mode = modeArr[int(i64)]
+			case "stemp":
+				// stemp is returned as a float, but is always integral, 2 exceptions...
+				if (val == "M") || (val == "--") {
+					CI.setTemp = 0
+				} else {
+					f64, _ = strconv.ParseFloat(val, 32)
+					CI.setTemp = int(f64)
+				}
+			case "shum":
+				// as per stemp
+				if val == "--" {
+					CI.setHumidity = 0
+				} else {
+					f64, _ = strconv.ParseFloat(val, 32)
+					CI.setHumidity = int(f64)
+				}
+			case "f_rate":
+				CI.fanRate = fanRateMap[val]
+			case "f_dir":
+				i64, _ = strconv.ParseInt(val, 10, 8)
+				CI.fanSweep = fanDirArr[int(i64)]
+			}
+			// reset for the next key/val pair
+			inKey = true
+			key = ""
+			val = ""
+		} else { // carry on building up the key or val
+			if inKey {
+				key += string([]byte{c})
+			} else {
+				val += string([]byte{c})
+			}
+		}
+	} // end for
+	return CI
+}
+
+func CItoJSON(CI ControlInfoT) (JSON string) {
+	JSON = "{\"power\":"
+	if CI.power {
+		JSON += "true"
+	} else {
+		JSON += "false"
+	}
+	JSON += ", \"mode\":\"" + CI.mode + "\"" +
+		", \"set_temp\":" + strconv.Itoa(CI.setTemp) +
+		", \"set_humidity\":" + strconv.Itoa(CI.setHumidity) +
+		", \"fan_rate\":\"" + CI.fanRate + "\"" +
+		", \"fan_sweep\":\"" + CI.fanSweep + "\"}"
+	return JSON
+}
+
+func parseSensorInfo(buffer []byte) (SI SensorInfoT) {
+	var key, val string
+	var i64 int64
+	var f64 float64
+	inKey := true
+	for i, c := range buffer {
+		if c == '=' { // switch from key to value collection
+			inKey = false
+		} else if (c == ',') || (i == len(buffer)-1) { // we should have a complete key and value
+			switch key {
+			case "ret":
+				SI.retOK = (val == "OK") // uppercase response from Daikin
+			case "htemp":
+				f64, _ = strconv.ParseFloat(val, 32)
+				SI.unitTemp = float32(f64)
+			case "hhum":
+				if val == "-" {
+					SI.unitHumidity = 0.0
+				} else {
+					f64, _ = strconv.ParseFloat(val, 32)
+					SI.unitHumidity = float32(f64)
+				}
+			case "otemp":
+				f64, _ = strconv.ParseFloat(val, 32)
+				SI.extTemp = float32(f64)
+			case "err":
+				i64, _ = strconv.ParseInt(val, 10, 32)
+				SI.errorCode = int(i64)
+			}
+			// reset for the next key/val pair
+			inKey = true
+			key = ""
+			val = ""
+		} else { // carry on building up the key or val
+			if inKey {
+				key += string([]byte{c})
+			} else {
+				val += string([]byte{c})
+			}
+		}
+	} // end for
+	return SI
+}
+
+func SItoJSON(SI SensorInfoT) (JSON string) {
+	JSON = fmt.Sprintf("{\"unit_temp\":%3.1f, \"unit_humidity\":%d, \"ext_temp\":%3.1f, \"error\":%d }",
+		SI.unitTemp, int(SI.unitHumidity), SI.extTemp, SI.errorCode)
+	return JSON
+}
+
 func (d *DaikinT) Discover() {
 	pc, err := net.ListenPacket("udp4", udpPort)
 	if err != nil {
@@ -207,8 +349,8 @@ func (d *DaikinT) Discover() {
 				bi BasicInfoT
 			)
 			host, _, _ := net.SplitHostPort(unitAddr.String())
-			bi.address = net.JoinHostPort(host, "80")
 			bi = parseBasicInfo(buf[:n])
+			bi.address = "http://" + host + ":80"
 
 			if inv, found := d.inverters[bi.mac_address]; found {
 				if inv.configured {
@@ -238,4 +380,64 @@ func (d *DaikinT) Discover() {
 			}
 		}
 	} // end loop
+}
+
+func (d *DaikinT) httpGet(url string) (ba []byte, err error) {
+	resp, err := d.httpReqClient.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return body, nil
+}
+
+// MonitorUnits should be run as a Goroutine
+func (d *DaikinT) MonitorUnits() {
+	var CI ControlInfoT
+	var SI SensorInfoT
+	for { // executed every conf.Update_Period seconds
+		for _, inv := range d.inverters {
+			// loop over all configured inverters that are online
+			if (inv.configured) && (inv.online) {
+				// fetch and publish Sensor Info
+				ba, err := d.httpGet(inv.basicInfo.address + getSensorInfo)
+				if err != nil {
+					log.Printf("WARNING: Sensor Information request failed for %s with %s\n",
+						inv.friendlyName, err)
+					// TODO mark offline?
+				} else {
+					SI = parseSensorInfo(ba)
+					subtopic := "/" + inv.friendlyName + "/sensors"
+					JSON := SItoJSON(SI)
+					if SI.retOK {
+						d.publishChan <- mqtt.MessageT{Subtopic: subtopic, Qos: 0, Retained: false, Payload: JSON}
+					} else {
+						log.Printf("WARNING: Unit %s did not return valid Sensor Info\n", inv.friendlyName)
+					}
+				}
+				// fetch and publish Control Info
+				ba, err = d.httpGet(inv.basicInfo.address + getControlInfo)
+				if err != nil {
+					log.Printf("WARNING: Control Information request failed for %s with %s\n",
+						inv.friendlyName, err)
+					// TODO mark offline?
+				} else {
+					CI = parseControlInfo(ba)
+					subtopic := "/" + inv.friendlyName + "/controls"
+					JSON := CItoJSON(CI)
+					if CI.retOK {
+						d.publishChan <- mqtt.MessageT{Subtopic: subtopic, Qos: 0, Retained: false, Payload: JSON}
+					} else {
+						log.Printf("WARNING: Unit %s did not return valid Control Info\n", inv.friendlyName)
+					}
+				}
+			}
+		}
+
+		time.Sleep(time.Duration(d.conf.Update_Period) * time.Second)
+	}
 }

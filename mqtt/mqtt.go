@@ -37,7 +37,7 @@ type MqttConfT struct {
 }
 
 type MessageT struct {
-	Topic    string
+	Subtopic string
 	Qos      byte
 	Retained bool
 	Payload  interface{}
@@ -81,7 +81,7 @@ func (m *MQTT_T) Start(conf MqttConfT) chan MessageT {
 	go m.publishViaMQTT()
 
 	msg := MessageT{
-		Topic:    conf.Base_Topic + "/status",
+		Subtopic: "/status",
 		Qos:      0,
 		Retained: false,
 		Payload:  "Started",
@@ -98,7 +98,7 @@ func (m *MQTT_T) Start(conf MqttConfT) chan MessageT {
 func (m *MQTT_T) publishViaMQTT() {
 	for {
 		msg := <-m.PublishChan
-		m.client.Publish(msg.Topic, msg.Qos, msg.Retained, msg.Payload)
+		m.client.Publish(m.conf.Base_Topic+msg.Subtopic, msg.Qos, msg.Retained, msg.Payload)
 	}
 }
 

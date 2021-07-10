@@ -54,10 +54,12 @@ func main() {
 
 	var mq mqtt.MQTT_T
 
-	mq.Start(config.Mqtt)
+	publishChan := mq.Start(config.Mqtt)
 
-	dk := daikin.Create(config.Daikin, config.Inverter)
+	dk := daikin.Create(config.Daikin, config.Inverter, publishChan)
 	dk.Discover()
+
+	go dk.MonitorUnits()
 
 	time.Sleep(5 * time.Second)
 
