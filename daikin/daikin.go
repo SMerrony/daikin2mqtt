@@ -83,6 +83,7 @@ type ControlInfoT struct {
 	setHumidity int
 	fanRate     string
 	fanSweep    string
+	timestamp   time.Time
 }
 
 type SensorInfoT struct {
@@ -91,6 +92,7 @@ type SensorInfoT struct {
 	unitHumidity float32
 	extTemp      float32
 	errorCode    int
+	timestamp    time.Time
 }
 
 type InverterT struct {
@@ -98,22 +100,24 @@ type InverterT struct {
 	configured,
 	detected,
 	online bool
-	basicInfo   BasicInfoT
-	SensorInfo  SensorInfoT
-	controlInfo ControlInfoT
+	basicInfo BasicInfoT
+	// SensorInfo  SensorInfoT
+	// controlInfo ControlInfoT
 }
 
 type DaikinT struct {
-	conf          DaikinConfT
-	inverters     map[string]InverterT
-	httpReqClient *http.Client
-	publishChan   chan mqtt.MessageT
+	conf            DaikinConfT
+	inverters       map[string]InverterT // mapped by MAC
+	invertersByName map[string]string    // map friendly name to MAC
+	httpReqClient   *http.Client
+	mq              mqtt.MQTT_T
 }
 
 // Create sets up a new DaikinT struct and adds any configured inverters
-func Create(dConf DaikinConfT, iConf []InverterConfT, publishChan chan mqtt.MessageT) (d DaikinT) {
+func Create(dConf DaikinConfT, iConf []InverterConfT, mq mqtt.MQTT_T) (d DaikinT) {
 	d.conf = dConf
 	d.inverters = make(map[string]InverterT)
+	d.invertersByName = make(map[string]string)
 	for _, c := range iConf {
 		if _, found := d.inverters[c.Mac]; found {
 			log.Fatalln("ERROR: Cannot configure the same inverter more than once")
@@ -124,12 +128,13 @@ func Create(dConf DaikinConfT, iConf []InverterConfT, publishChan chan mqtt.Mess
 		i.detected = false
 		i.online = false
 		d.inverters[c.Mac] = i
+		d.invertersByName[c.Friendly_Name] = c.Mac
 	}
 	log.Printf("INFO: %d Inverters found in configuration", len(d.inverters))
 	d.httpReqClient = &http.Client{
 		Timeout: time.Second, // TODO parm?
 	}
-	d.publishChan = publishChan
+	d.mq = mq
 	return d
 }
 
@@ -249,6 +254,7 @@ func parseControlInfo(buffer []byte) (CI ControlInfoT) {
 			}
 		}
 	} // end for
+	CI.timestamp = time.Now()
 	return CI
 }
 
@@ -259,11 +265,12 @@ func CItoJSON(CI ControlInfoT) (JSON string) {
 	} else {
 		JSON += "false"
 	}
-	JSON += ", \"mode\":\"" + CI.mode + "\"" +
-		", \"set_temp\":" + strconv.Itoa(CI.setTemp) +
-		", \"set_humidity\":" + strconv.Itoa(CI.setHumidity) +
-		", \"fan_rate\":\"" + CI.fanRate + "\"" +
-		", \"fan_sweep\":\"" + CI.fanSweep + "\"}"
+	JSON += ",\"mode\":\"" + CI.mode + "\"" +
+		",\"set_temp\":" + strconv.Itoa(CI.setTemp) +
+		",\"set_humidity\":" + strconv.Itoa(CI.setHumidity) +
+		",\"fan_rate\":\"" + CI.fanRate + "\"" +
+		",\"fan_sweep\":\"" + CI.fanSweep + "\"" +
+		",\"timestamp\":\"" + CI.timestamp.Format("15:04:05") + "\"}"
 	return JSON
 }
 
@@ -290,8 +297,12 @@ func parseSensorInfo(buffer []byte) (SI SensorInfoT) {
 					SI.unitHumidity = float32(f64)
 				}
 			case "otemp":
-				f64, _ = strconv.ParseFloat(val, 32)
-				SI.extTemp = float32(f64)
+				if val == "-" {
+					SI.extTemp = -99.0
+				} else {
+					f64, _ = strconv.ParseFloat(val, 32)
+					SI.extTemp = float32(f64)
+				}
 			case "err":
 				i64, _ = strconv.ParseInt(val, 10, 32)
 				SI.errorCode = int(i64)
@@ -308,12 +319,13 @@ func parseSensorInfo(buffer []byte) (SI SensorInfoT) {
 			}
 		}
 	} // end for
+	SI.timestamp = time.Now()
 	return SI
 }
 
 func SItoJSON(SI SensorInfoT) (JSON string) {
-	JSON = fmt.Sprintf("{\"unit_temp\":%3.1f, \"unit_humidity\":%d, \"ext_temp\":%3.1f, \"error\":%d }",
-		SI.unitTemp, int(SI.unitHumidity), SI.extTemp, SI.errorCode)
+	JSON = fmt.Sprintf("{\"unit_temp\":%3.1f,\"unit_humidity\":%d,\"ext_temp\":%3.1f,\"error\":%d,\"timestamp\":\"%s\"}",
+		SI.unitTemp, int(SI.unitHumidity), SI.extTemp, SI.errorCode, SI.timestamp.Format("15:04:05"))
 	return JSON
 }
 
@@ -395,49 +407,90 @@ func (d *DaikinT) httpGet(url string) (ba []byte, err error) {
 	return body, nil
 }
 
+func (d *DaikinT) FetchAndPublishSensorInfo(inverter InverterT) {
+	var SI SensorInfoT
+	ba, err := d.httpGet(inverter.basicInfo.address + getSensorInfo)
+	if err != nil {
+		log.Printf("WARNING: Sensor Information request failed for %s with %s\n",
+			inverter.friendlyName, err)
+		// TODO mark offline?
+	} else {
+		SI = parseSensorInfo(ba)
+		subtopic := "/" + inverter.friendlyName + "/sensors"
+		JSON := SItoJSON(SI)
+		if SI.retOK {
+			d.mq.PublishChan <- mqtt.MessageT{Subtopic: subtopic, Qos: 0, Retained: false, Payload: JSON}
+		} else {
+			log.Printf("WARNING: Unit %s did not return valid Sensor Info\n", inverter.friendlyName)
+		}
+	}
+}
+
+func (d *DaikinT) FetchAndPublishControlInfo(inverter InverterT) {
+	var CI ControlInfoT
+	ba, err := d.httpGet(inverter.basicInfo.address + getControlInfo)
+	if err != nil {
+		log.Printf("WARNING: Control Information request failed for %s with %s\n",
+			inverter.friendlyName, err)
+		// TODO mark offline?
+	} else {
+		CI = parseControlInfo(ba)
+		subtopic := "/" + inverter.friendlyName + "/controls"
+		JSON := CItoJSON(CI)
+		if CI.retOK {
+			d.mq.PublishChan <- mqtt.MessageT{Subtopic: subtopic, Qos: 0, Retained: false, Payload: JSON}
+		} else {
+			log.Printf("WARNING: Unit %s did not return valid Control Info\n", inverter.friendlyName)
+		}
+	}
+}
+
 // MonitorUnits should be run as a Goroutine
 func (d *DaikinT) MonitorUnits() {
-	var CI ControlInfoT
-	var SI SensorInfoT
+	// var SI SensorInfoT
 	for { // executed every conf.Update_Period seconds
 		for _, inv := range d.inverters {
 			// loop over all configured inverters that are online
 			if (inv.configured) && (inv.online) {
-				// fetch and publish Sensor Info
-				ba, err := d.httpGet(inv.basicInfo.address + getSensorInfo)
-				if err != nil {
-					log.Printf("WARNING: Sensor Information request failed for %s with %s\n",
-						inv.friendlyName, err)
-					// TODO mark offline?
-				} else {
-					SI = parseSensorInfo(ba)
-					subtopic := "/" + inv.friendlyName + "/sensors"
-					JSON := SItoJSON(SI)
-					if SI.retOK {
-						d.publishChan <- mqtt.MessageT{Subtopic: subtopic, Qos: 0, Retained: false, Payload: JSON}
-					} else {
-						log.Printf("WARNING: Unit %s did not return valid Sensor Info\n", inv.friendlyName)
-					}
-				}
-				// fetch and publish Control Info
-				ba, err = d.httpGet(inv.basicInfo.address + getControlInfo)
-				if err != nil {
-					log.Printf("WARNING: Control Information request failed for %s with %s\n",
-						inv.friendlyName, err)
-					// TODO mark offline?
-				} else {
-					CI = parseControlInfo(ba)
-					subtopic := "/" + inv.friendlyName + "/controls"
-					JSON := CItoJSON(CI)
-					if CI.retOK {
-						d.publishChan <- mqtt.MessageT{Subtopic: subtopic, Qos: 0, Retained: false, Payload: JSON}
-					} else {
-						log.Printf("WARNING: Unit %s did not return valid Control Info\n", inv.friendlyName)
-					}
-				}
+				d.FetchAndPublishSensorInfo(inv)
+				// experimental inter-request pause...
+				time.Sleep(150 * time.Millisecond) // TODO parm?
+				d.FetchAndPublishControlInfo(inv)
 			}
 		}
-
 		time.Sleep(time.Duration(d.conf.Update_Period) * time.Second)
+	}
+}
+
+func (d *DaikinT) MonitorRequests() {
+	reqChan := d.mq.SubscribeToSubTopic("/+/+/+") // subscribe to get and set subtopics for all units
+	for {
+		req := <-reqChan
+		//     	payload := string(req.Payload.([]uint8))
+		// topic format is base_topic/friendly_name/set|get/info_type
+		topicSlice := strings.Split(req.Subtopic, "/")
+		friendlyName := topicSlice[1]
+		command := topicSlice[2]
+		infoType := topicSlice[3]
+		// log.Printf("DEBUG: Got command %s, %s for unit %s\n", command, infoType, friendlyName)
+		if mac, found := d.invertersByName[friendlyName]; found {
+			switch command {
+			case "get":
+				switch infoType {
+				case "basic": // TODO
+				case "control":
+					d.FetchAndPublishControlInfo(d.inverters[mac])
+				case "sensor":
+					d.FetchAndPublishSensorInfo(d.inverters[mac])
+				default:
+					log.Printf("WARNING: Unrecognised get subtopic `%s` received via MQTT\n", infoType)
+				}
+			case "set":
+			default:
+				log.Printf("WARNING: Unrecognised command `%s` received via MQTT\n", command)
+			}
+		} else {
+			log.Printf("WARNING: Unrecognised inverter name `%s` received via MQTT\n", friendlyName)
+		}
 	}
 }

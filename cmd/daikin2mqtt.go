@@ -20,7 +20,6 @@ import (
 	"flag"
 	"log"
 	"os"
-	"time"
 
 	"github.com/SMerrony/daikin2mqtt/daikin"
 	"github.com/SMerrony/daikin2mqtt/mqtt"
@@ -54,13 +53,15 @@ func main() {
 
 	var mq mqtt.MQTT_T
 
-	publishChan := mq.Start(config.Mqtt)
+	mq.Start(config.Mqtt)
 
-	dk := daikin.Create(config.Daikin, config.Inverter, publishChan)
+	dk := daikin.Create(config.Daikin, config.Inverter, mq)
 	dk.Discover()
 
 	go dk.MonitorUnits()
 
-	time.Sleep(5 * time.Second)
+	dk.MonitorRequests()
+
+	// time.Sleep(5 * time.Second)
 
 }

@@ -53,7 +53,7 @@ type MQTT_T struct {
 	pubHandler     mqtt.MessageHandler
 }
 
-func (m *MQTT_T) Start(conf MqttConfT) chan MessageT {
+func (m *MQTT_T) Start(conf MqttConfT) {
 	m.options = mqtt.NewClientOptions()
 	m.options.AddBroker(fmt.Sprintf("tcp://%s:%d", conf.Broker, conf.Port))
 	if conf.Username != "" {
@@ -87,11 +87,6 @@ func (m *MQTT_T) Start(conf MqttConfT) chan MessageT {
 		Payload:  "Started",
 	}
 	m.PublishChan <- msg
-
-	m.SubscribeToSubTopic("/+/+/+") // subscribe to get and set topics for all units
-
-	return m.PublishChan
-
 }
 
 // publishViaMQTT sends messages to any MQTT listeners via the configured Broker
@@ -102,7 +97,8 @@ func (m *MQTT_T) publishViaMQTT() {
 	}
 }
 
-// SubscribeToTopic returns a channel which will receive any MQTT messages published to the topic
+// SubscribeToTopic returns a channel which will receive any MQTT messages published to the
+// given subtopic of the configured Base_Topic
 func (m *MQTT_T) SubscribeToSubTopic(subtopic string) (c chan MessageT) {
 	c = make(chan MessageT, mqttInboundQueueLen)
 	m.client.Subscribe(m.conf.Base_Topic+subtopic, 1, func(client mqtt.Client, msg mqtt.Message) {

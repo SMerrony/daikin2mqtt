@@ -19,4 +19,7 @@ update_period = 60                  # Required: Pause (s) between fetching updat
   mac = "C0E434E60BC6"             
   friendly_name = "Spare_Bedroom"   
 
+[[inverter]]
+  mac = "D8C0A664E830"             
+  friendly_name = "Music_Room"   
   

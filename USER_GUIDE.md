@@ -80,7 +80,8 @@ Published to subtopic `/controls`
     "set_temp":         <integer>,
     "set_humidity":     <integer>,
     "fan_rate":         "<fan-rate-string>",
-    "fan_sweep":        "<fan-sweep-string>"
+    "fan_sweep":        "<fan-sweep-string>",
+    "timestamp":        "<HH:MM:SS>"
 }   
 ```
 Where:
@@ -95,6 +96,8 @@ In dehumidify mode, some units return a set temperature of "M", Daikink2MQTT wil
 
 In some modes, set temperature and set humidity are reported as "--", Daikink2MQTT will return 0 in these cases.
 
+The timestamp records when the data was collected from the unit.
+
 ### Sensor Message
 Published to subtopic `/sensors`
 ```
@@ -102,7 +105,8 @@ Published to subtopic `/sensors`
     "unit_temp":        <float, 1 d.p.>,
     "unit_humidity":    <integer>,
     "ext_temp":         <float, 1 d.p.>,
-    "error":            <integer>
+    "error":            <integer>,
+    "timestamp":        "<HH:MM:SS>"
 }
 ```
 Not all units return external temperatures (some only when powered on), Daikin2MQTT will return a dummy
@@ -110,3 +114,4 @@ value of -99.0 when no temperature is reported.
 
 Likewise, not all units report humidity, Daikin2MQTT will return a value of 0 if none is reported.
 
+The timestamp records when the data was collected from the unit.
