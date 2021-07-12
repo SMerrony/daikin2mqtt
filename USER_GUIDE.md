@@ -48,9 +48,9 @@ The only subtopic currently defined for `set` is `control`, you must supply a co
 Eg. `daikin2mqtt/Spare_Bedroom/set/control`
 
 ### Get Subtopics
-The subtopics for `get` are `basic`, `control` and `sensor`.
+The subtopics for `get` are `basic`, `control`, `online`, `sensor`, and `status`.
 
-Eg. `daikin2mqtt/Steves_Room/get/basic`
+Eg. `daikin2mqtt/Steves_Room/get/sensor`
 
 ## MQTT Messages
 
@@ -59,17 +59,17 @@ Messages (payloads) are all in JSON format.
 ### Basic
 ```
 {
-    "detected":         true|false,
-    "online":           true|false,
     "firmware_version": "<string>",
     "power":            true|false,
     "error":            <integer>,
     "adaptor_led":      true|false,
     "holiday_mode":     true|false,
     "group_mode":       true|false,
-    "group_name":       "<string>"
+    "group_name":       "<string>",
+    "timestamp":        "<HH:MM:SS>"
 }
 ```
+The timestamp records when the data was collected from the unit.
 
 ### Control Report
 Published to subtopic `/controls`

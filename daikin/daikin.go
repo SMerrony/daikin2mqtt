@@ -73,6 +73,7 @@ type BasicInfoT struct {
 	holiday_mode     bool
 	group_mode       bool
 	group_name       string
+	timestamp        time.Time
 }
 
 type ControlInfoT struct {
@@ -100,7 +101,7 @@ type InverterT struct {
 	configured,
 	detected,
 	online bool
-	basicInfo BasicInfoT
+	basicInfo BasicInfoT // the Daikin 'basic' info returned when we detect the unit
 	// SensorInfo  SensorInfoT
 	// controlInfo ControlInfoT
 }
@@ -189,7 +190,29 @@ func parseBasicInfo(buffer []byte) (BI BasicInfoT) {
 			}
 		}
 	} // end for
+	BI.timestamp = time.Now()
 	return BI
+}
+
+// boolToJSON converts a bool into JSON
+func boolToJSON(val bool) string {
+	if val {
+		return "true"
+	} else {
+		return "false"
+	}
+}
+
+func basicInfoToJSON(BI BasicInfoT) (JSON string) {
+	JSON = "{\"firmware_version\":\"" + BI.firmware_version + "\"" +
+		",\"power\":" + boolToJSON(BI.powered_on) +
+		",\"error\":" + strconv.Itoa(BI.error_code) +
+		",\"adaptor_led\":" + boolToJSON(BI.adaptor_led) +
+		",\"holiday_mode\":" + boolToJSON(BI.holiday_mode) +
+		",\"group_mode\":" + boolToJSON(BI.group_mode) +
+		",\"group_name\":\"" + BI.group_name + "\"" +
+		",\"timestamp\":\"" + BI.timestamp.Format("15:04:05") + "\"}"
+	return JSON
 }
 
 var modeArr = [...]string{"AUTO", "AUTO 1", "DEHUMIDIFY", "COOL", "HEAT", "MODE 5", "FAN", "AUTO 2"}
@@ -258,7 +281,7 @@ func parseControlInfo(buffer []byte) (CI ControlInfoT) {
 	return CI
 }
 
-func CItoJSON(CI ControlInfoT) (JSON string) {
+func controlInfoToJSON(CI ControlInfoT) (JSON string) {
 	JSON = "{\"power\":"
 	if CI.power {
 		JSON += "true"
@@ -323,7 +346,7 @@ func parseSensorInfo(buffer []byte) (SI SensorInfoT) {
 	return SI
 }
 
-func SItoJSON(SI SensorInfoT) (JSON string) {
+func sensorInfoToJSON(SI SensorInfoT) (JSON string) {
 	JSON = fmt.Sprintf("{\"unit_temp\":%3.1f,\"unit_humidity\":%d,\"ext_temp\":%3.1f,\"error\":%d,\"timestamp\":\"%s\"}",
 		SI.unitTemp, int(SI.unitHumidity), SI.extTemp, SI.errorCode, SI.timestamp.Format("15:04:05"))
 	return JSON
@@ -407,7 +430,26 @@ func (d *DaikinT) httpGet(url string) (ba []byte, err error) {
 	return body, nil
 }
 
-func (d *DaikinT) FetchAndPublishSensorInfo(inverter InverterT) {
+func (d *DaikinT) fetchAndPublishBasicInfo(inverter InverterT) {
+	var BI BasicInfoT
+	ba, err := d.httpGet(inverter.basicInfo.address + getBasicInfo)
+	if err != nil {
+		log.Printf("WARNING: Basic Information request failed for %s with %s\n",
+			inverter.friendlyName, err)
+		// TODO mark offline?
+	} else {
+		BI = parseBasicInfo(ba)
+		subtopic := "/" + inverter.friendlyName + "/basic"
+		JSON := basicInfoToJSON(BI)
+		// if BI.retOK {
+		d.mq.PublishChan <- mqtt.MessageT{Subtopic: subtopic, Qos: 0, Retained: false, Payload: JSON}
+		// } else {
+		// 	log.Printf("WARNING: Unit %s did not return valid Sensor Info\n", inverter.friendlyName)
+		// }
+	}
+}
+
+func (d *DaikinT) fetchAndPublishSensorInfo(inverter InverterT) {
 	var SI SensorInfoT
 	ba, err := d.httpGet(inverter.basicInfo.address + getSensorInfo)
 	if err != nil {
@@ -417,7 +459,7 @@ func (d *DaikinT) FetchAndPublishSensorInfo(inverter InverterT) {
 	} else {
 		SI = parseSensorInfo(ba)
 		subtopic := "/" + inverter.friendlyName + "/sensors"
-		JSON := SItoJSON(SI)
+		JSON := sensorInfoToJSON(SI)
 		if SI.retOK {
 			d.mq.PublishChan <- mqtt.MessageT{Subtopic: subtopic, Qos: 0, Retained: false, Payload: JSON}
 		} else {
@@ -426,7 +468,7 @@ func (d *DaikinT) FetchAndPublishSensorInfo(inverter InverterT) {
 	}
 }
 
-func (d *DaikinT) FetchAndPublishControlInfo(inverter InverterT) {
+func (d *DaikinT) fetchAndPublishControlInfo(inverter InverterT) {
 	var CI ControlInfoT
 	ba, err := d.httpGet(inverter.basicInfo.address + getControlInfo)
 	if err != nil {
@@ -436,7 +478,7 @@ func (d *DaikinT) FetchAndPublishControlInfo(inverter InverterT) {
 	} else {
 		CI = parseControlInfo(ba)
 		subtopic := "/" + inverter.friendlyName + "/controls"
-		JSON := CItoJSON(CI)
+		JSON := controlInfoToJSON(CI)
 		if CI.retOK {
 			d.mq.PublishChan <- mqtt.MessageT{Subtopic: subtopic, Qos: 0, Retained: false, Payload: JSON}
 		} else {
@@ -452,16 +494,18 @@ func (d *DaikinT) MonitorUnits() {
 		for _, inv := range d.inverters {
 			// loop over all configured inverters that are online
 			if (inv.configured) && (inv.online) {
-				d.FetchAndPublishSensorInfo(inv)
+				d.fetchAndPublishSensorInfo(inv)
 				// experimental inter-request pause...
 				time.Sleep(150 * time.Millisecond) // TODO parm?
-				d.FetchAndPublishControlInfo(inv)
+				d.fetchAndPublishControlInfo(inv)
 			}
 		}
 		time.Sleep(time.Duration(d.conf.Update_Period) * time.Second)
 	}
 }
 
+// MonitorRequests handles 'get' and 'set' requests coming in via MQTT
+// It can be run as either the final loop, or as a Goroutine.
 func (d *DaikinT) MonitorRequests() {
 	reqChan := d.mq.SubscribeToSubTopic("/+/+/+") // subscribe to get and set subtopics for all units
 	for {
@@ -477,11 +521,12 @@ func (d *DaikinT) MonitorRequests() {
 			switch command {
 			case "get":
 				switch infoType {
-				case "basic": // TODO
+				case "basic":
+					d.fetchAndPublishBasicInfo(d.inverters[mac])
 				case "control":
-					d.FetchAndPublishControlInfo(d.inverters[mac])
+					d.fetchAndPublishControlInfo(d.inverters[mac])
 				case "sensor":
-					d.FetchAndPublishSensorInfo(d.inverters[mac])
+					d.fetchAndPublishSensorInfo(d.inverters[mac])
 				default:
 					log.Printf("WARNING: Unrecognised get subtopic `%s` received via MQTT\n", infoType)
 				}
