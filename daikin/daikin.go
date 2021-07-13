@@ -17,6 +17,7 @@
 package daikin
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -55,6 +56,32 @@ const (
 	setControlInfo  = "/aircon/set_control_info"
 )
 
+const setControlFmt = "?pow=%s&mode=%s&stemp=%s&f_rate=%s&f_dir=%s&shum=%s"
+
+var modeArr = [...]string{"AUTO", "AUTO 1", "DEHUMIDIFY", "COOL", "HEAT", "MODE 5", "FAN", "AUTO 2"}
+var fanRateMap = map[string]string{
+	"A": "AUTO",
+	"B": "SILENT",
+	"3": "LEVEL_1",
+	"4": "LEVEL_2",
+	"5": "LEVEL_3",
+	"6": "LEVEL_4",
+	"7": "LEVEL_5"}
+var inverseFanRateMap = map[string]string{
+	"AUTO":    "A",
+	"SILENT":  "B",
+	"LEVEL_1": "3",
+	"LEVEL_2": "4",
+	"LEVEL_3": "5",
+	"LEVEL_4": "6",
+	"LEVEL_5": "7"}
+var fanDirArr = [...]string{"OFF", "VERTICAL", "HORIZONTAL", "BOTH"}
+var inverseFanDirMap = map[string]int{
+	"OFF":        0,
+	"VERTICAL":   1,
+	"HORIZONTAL": 2,
+	"BOTH":       3}
+
 const (
 	udpPort  = ":30050"
 	udpQuery = "DAIKIN_UDP" + getBasicInfo
@@ -78,13 +105,13 @@ type BasicInfoT struct {
 
 type ControlInfoT struct {
 	retOK       bool
-	power       bool
-	mode        string
-	setTemp     int
-	setHumidity int
-	fanRate     string
-	fanSweep    string
-	timestamp   time.Time
+	power       bool      // `json:"power"`
+	mode        string    // `json:"mode"`
+	setTemp     int       // `json:"set_temp"`
+	setHumidity int       // `json:"set_humidity"`
+	fanRate     string    // `json:"fan_rate"`
+	fanSweep    string    // `json:"fan_sweep"`
+	timestamp   time.Time // `json:"timestamp"`
 }
 
 type SensorInfoT struct {
@@ -214,17 +241,6 @@ func basicInfoToJSON(BI BasicInfoT) (JSON string) {
 		",\"timestamp\":\"" + BI.timestamp.Format("15:04:05") + "\"}"
 	return JSON
 }
-
-var modeArr = [...]string{"AUTO", "AUTO 1", "DEHUMIDIFY", "COOL", "HEAT", "MODE 5", "FAN", "AUTO 2"}
-var fanRateMap = map[string]string{
-	"A": "AUTO",
-	"B": "SILENT",
-	"3": "LEVEL_1",
-	"4": "LEVEL_2",
-	"5": "LEVEL_3",
-	"6": "LEVEL_4",
-	"7": "LEVEL_5"}
-var fanDirArr = [...]string{"OFF", "VERTICAL", "HORIZONTAL", "BOTH"}
 
 func parseControlInfo(buffer []byte) (CI ControlInfoT) {
 	var key, val string
@@ -468,21 +484,87 @@ func (d *DaikinT) fetchAndPublishSensorInfo(inverter InverterT) {
 	}
 }
 
-func (d *DaikinT) fetchAndPublishControlInfo(inverter InverterT) {
-	var CI ControlInfoT
+func (d *DaikinT) fetchControlInfo(inverter InverterT) (CI ControlInfoT, ok bool) {
+	ok = true
 	ba, err := d.httpGet(inverter.basicInfo.address + getControlInfo)
 	if err != nil {
 		log.Printf("WARNING: Control Information request failed for %s with %s\n",
 			inverter.friendlyName, err)
 		// TODO mark offline?
+		ok = false
 	} else {
 		CI = parseControlInfo(ba)
+		ok = CI.retOK
+	}
+	return CI, ok
+}
+
+func (d *DaikinT) fetchAndPublishControlInfo(inverter InverterT) {
+	CI, ok := d.fetchControlInfo(inverter)
+	if ok {
 		subtopic := "/" + inverter.friendlyName + "/controls"
 		JSON := controlInfoToJSON(CI)
-		if CI.retOK {
-			d.mq.PublishChan <- mqtt.MessageT{Subtopic: subtopic, Qos: 0, Retained: false, Payload: JSON}
-		} else {
-			log.Printf("WARNING: Unit %s did not return valid Control Info\n", inverter.friendlyName)
+		d.mq.PublishChan <- mqtt.MessageT{Subtopic: subtopic, Qos: 0, Retained: false, Payload: JSON}
+	}
+}
+
+func modeIndex(mode string) int {
+	for index, c := range modeArr {
+		if c == mode {
+			return index
+		}
+	}
+	log.Printf("WARNING: Invalid Mode string: %s\n", mode)
+	return -1
+}
+
+// sendControlInfo fetches the current CI of a unit, then sends it back with
+// any changes
+func (d *DaikinT) sendControlInfo(inverter InverterT, CIjson []byte) {
+	var userData map[string]interface{}
+	err := json.Unmarshal(CIjson, &userData)
+	if err != nil {
+		log.Printf("WARNING: Invalid Control data supplied for 'set' command: %s\n", string(CIjson))
+	} else {
+		oldCI, ok := d.fetchControlInfo(inverter)
+		if ok {
+			newCI := oldCI
+			if newPower, found := userData["power"]; found {
+				newCI.power = newPower.(bool)
+			}
+			if newMode, found := userData["mode"]; found {
+				newCI.mode = newMode.(string)
+			}
+			if newStemp, found := userData["set_temp"]; found {
+				newCI.setTemp = int(newStemp.(float64))
+			}
+			if newShum, found := userData["set_dumidity"]; found {
+				newCI.setHumidity = int(newShum.(float64))
+			}
+			if newFrate, found := userData["fan_rate"]; found {
+				newCI.fanRate = newFrate.(string)
+			}
+			if newSweep, found := userData["fan_sweep"]; found {
+				newCI.fanSweep = newSweep.(string)
+			}
+
+			var pow, mode, stemp, shum, frate, fdir string
+			if newCI.power {
+				pow = "1"
+			} else {
+				pow = "0"
+			}
+			mode = strconv.Itoa(modeIndex(newCI.mode))
+			stemp = strconv.Itoa(newCI.setTemp)
+			shum = strconv.Itoa(newCI.setHumidity)
+			frate = inverseFanRateMap[newCI.fanRate]
+			fdir = strconv.Itoa(inverseFanDirMap[newCI.fanRate])
+
+			args := fmt.Sprintf(setControlFmt, pow, mode, stemp, frate, fdir, shum)
+			_, err := d.httpGet(inverter.basicInfo.address + setControlInfo + args)
+			if err != nil {
+				log.Printf("WARNING: Error sending control command %v\v", err)
+			}
 		}
 	}
 }
@@ -516,21 +598,30 @@ func (d *DaikinT) MonitorRequests() {
 		friendlyName := topicSlice[1]
 		command := topicSlice[2]
 		infoType := topicSlice[3]
-		// log.Printf("DEBUG: Got command %s, %s for unit %s\n", command, infoType, friendlyName)
+		log.Printf("DEBUG: Got command %s, %s for unit %s\n", command, infoType, friendlyName)
 		if mac, found := d.invertersByName[friendlyName]; found {
 			switch command {
 			case "get":
 				switch infoType {
 				case "basic":
 					d.fetchAndPublishBasicInfo(d.inverters[mac])
-				case "control":
+				case "controls":
 					d.fetchAndPublishControlInfo(d.inverters[mac])
-				case "sensor":
+				case "sensors":
 					d.fetchAndPublishSensorInfo(d.inverters[mac])
 				default:
 					log.Printf("WARNING: Unrecognised get subtopic `%s` received via MQTT\n", infoType)
 				}
 			case "set":
+				switch infoType {
+				case "controls":
+					jsonCI := req.Payload.([]byte)
+					d.sendControlInfo(d.inverters[mac], jsonCI)
+					time.Sleep(750 * time.Millisecond) // the unit needs time to handle the request
+					d.fetchAndPublishControlInfo(d.inverters[mac])
+				default:
+					log.Printf("WARNING: Unrecognised set subtopic `%s` received via MQTT\n", infoType)
+				}
 			default:
 				log.Printf("WARNING: Unrecognised command `%s` received via MQTT\n", command)
 			}

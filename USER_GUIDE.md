@@ -32,25 +32,33 @@ update_period = 60                  # Required: Pause (s) between fetching updat
 
 ## MQTT Topics
 
-(From here on we assume you have set the base_topic to "daikin2mqtt".)
+N.B. Henceforth we assume you have set the base_topic to "daikin2mqtt".
 
 There are three main types of message topic:
 
 1. Device status updates and responses to requests are published to `daikin2mqtt/FRIENDLY_NAME/<type>`
-2. Commands you send to inverters via `daikin2mqtt/FRIENDLY_NAME/set`
-3. Requests for inverter state via `daikin2mqtt/FRIENDLY_NAME/get`
-
+2. Requests for inverter state via `daikin2mqtt/FRIENDLY_NAME/get`
+3. Commands you send to inverters via `daikin2mqtt/FRIENDLY_NAME/set`
+   
 On start-up, the simple string "Started" is sent to the `daikin2mqtt/status` topic.
 
-### Set Subtopics
-The only subtopic currently defined for `set` is `control`, you must supply a control message.
-
-Eg. `daikin2mqtt/Spare_Bedroom/set/control`
+Currently, *daikin2mqtt* does not store live data internally - each time a `get` request is 
+received the appropriate unit is queried for the data.
 
 ### Get Subtopics
-The subtopics for `get` are `basic`, `control`, `online`, `sensor`, and `status`.
+The subtopics for `get` are `basic`, `controls`, [`online` ??? - tbd], and  `sensors` 
 
-Eg. `daikin2mqtt/Steves_Room/get/sensor`
+Eg. `daikin2mqtt/Steves_Room/get/sensors`
+
+### Set Subtopics
+The only subtopic currently defined for `set` is `controls`, you must supply a control message.
+
+Eg. `daikin2mqtt/Spare_Bedroom/set/controls`
+
+The JSON-formatted control message may contain any number of the fields shown below
+* setting the timestamp is meaningless and will be ignored
+* you can set just one, several, or all of the controls
+* unset controls will be left as-is
 
 ## MQTT Messages
 
@@ -69,9 +77,9 @@ Messages (payloads) are all in JSON format.
     "timestamp":        "<HH:MM:SS>"
 }
 ```
-The timestamp records when the data was collected from the unit.
+The timestamp records when the data were collected from the unit.
 
-### Control Report
+### Controls
 Published to subtopic `/controls`
 ```
 {
@@ -92,13 +100,13 @@ Where:
 
 `<fan-sweep-string>` is one of "OFF", "VERTICAL", "HORIZONTAL", "BOTH"
 
-In dehumidify mode, some units return a set temperature of "M", Daikink2MQTT will return 0 in this case.
+In dehumidify mode, some units return a set temperature of "M", *daikin2mqtt* will return 0 in this case.
 
-In some modes, set temperature and set humidity are reported as "--", Daikink2MQTT will return 0 in these cases.
+In some modes, set temperature and set humidity are reported as "--", *daikin2mqtt* will return 0 in these cases.
 
-The timestamp records when the data was collected from the unit.
+The timestamp records when the data were collected from the unit. Do not include the timestamp field in a `set/controls` request.
 
-### Sensor Message
+### Sensors
 Published to subtopic `/sensors`
 ```
 {
@@ -109,9 +117,9 @@ Published to subtopic `/sensors`
     "timestamp":        "<HH:MM:SS>"
 }
 ```
-Not all units return external temperatures (some only when powered on), Daikin2MQTT will return a dummy
+Not all units return external temperatures (some only when powered on), *daikin2mqtt* will return a dummy
 value of -99.0 when no temperature is reported.
 
-Likewise, not all units report humidity, Daikin2MQTT will return a value of 0 if none is reported.
+Likewise, not all units report humidity, *daikin2mqtt* will return a value of 0 if none is reported.
 
-The timestamp records when the data was collected from the unit.
+The timestamp records when the data were collected from the unit.

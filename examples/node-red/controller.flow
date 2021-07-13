@@ -1,0 +1,618 @@
+[
+    {
+        "id": "ea1113cf.80245",
+        "type": "tab",
+        "label": "New Daikin",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "216e1c47.fddd24",
+        "type": "mqtt in",
+        "z": "ea1113cf.80245",
+        "name": "",
+        "topic": "daikin2mqtt/Steve_Office/sensors",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "fb4e4d64.1c3728",
+        "x": 190,
+        "y": 160,
+        "wires": [
+            [
+                "b29ef9b0.fde468",
+                "326c0f07.cb40f"
+            ]
+        ]
+    },
+    {
+        "id": "a19c0606.50be58",
+        "type": "ui_text",
+        "z": "ea1113cf.80245",
+        "group": "f6793420.7c32f8",
+        "order": 6,
+        "width": "3",
+        "height": "1",
+        "name": "",
+        "label": "Unit Temp.",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 690,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "b29ef9b0.fde468",
+        "type": "function",
+        "z": "ea1113cf.80245",
+        "name": "Unit_Temp",
+        "func": "msg.payload = msg.payload.unit_temp;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 480,
+        "y": 120,
+        "wires": [
+            [
+                "a19c0606.50be58"
+            ]
+        ]
+    },
+    {
+        "id": "326c0f07.cb40f",
+        "type": "function",
+        "z": "ea1113cf.80245",
+        "name": "Ext_Temp",
+        "func": "msg.payload = msg.payload.ext_temp;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 480,
+        "y": 180,
+        "wires": [
+            [
+                "6bae7a12.c862d4"
+            ]
+        ]
+    },
+    {
+        "id": "6bae7a12.c862d4",
+        "type": "ui_text",
+        "z": "ea1113cf.80245",
+        "group": "f6793420.7c32f8",
+        "order": 7,
+        "width": "3",
+        "height": "1",
+        "name": "",
+        "label": "Ext. Temp.",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 690,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "ce5605be.875f68",
+        "type": "mqtt in",
+        "z": "ea1113cf.80245",
+        "name": "",
+        "topic": "daikin2mqtt/Steve_Office/controls",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "fb4e4d64.1c3728",
+        "x": 190,
+        "y": 420,
+        "wires": [
+            [
+                "7e21aed2.1917d",
+                "27de335e.21674c",
+                "2316fdba.b10c32",
+                "58a31560.24451c",
+                "f7ed7f50.a7f1f",
+                "5d670add.570584"
+            ]
+        ]
+    },
+    {
+        "id": "c328d01e.02173",
+        "type": "ui_dropdown",
+        "z": "ea1113cf.80245",
+        "name": "",
+        "label": "Mode",
+        "tooltip": "",
+        "place": "Select option",
+        "group": "f6793420.7c32f8",
+        "order": 3,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "multiple": false,
+        "options": [
+            {
+                "label": "Auto",
+                "value": "AUTO",
+                "type": "str"
+            },
+            {
+                "label": "Auto 1",
+                "value": "AUTO 1",
+                "type": "str"
+            },
+            {
+                "label": "Dehumidify",
+                "value": "DEHUMIDIFY",
+                "type": "str"
+            },
+            {
+                "label": "Cool",
+                "value": "COOL",
+                "type": "str"
+            },
+            {
+                "label": "Heat",
+                "value": "HEAT",
+                "type": "str"
+            },
+            {
+                "label": "Mode 5",
+                "value": "MODE 5",
+                "type": "str"
+            },
+            {
+                "label": "Fan",
+                "value": "FAN",
+                "type": "str"
+            },
+            {
+                "label": "Auto 2",
+                "value": "AUTO 2",
+                "type": "str"
+            }
+        ],
+        "payload": "",
+        "topic": "topic",
+        "topicType": "msg",
+        "x": 670,
+        "y": 400,
+        "wires": [
+            [
+                "499e753c.56ab4c"
+            ]
+        ]
+    },
+    {
+        "id": "7e21aed2.1917d",
+        "type": "function",
+        "z": "ea1113cf.80245",
+        "name": "Mode",
+        "func": "msg.payload = msg.payload.mode;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 470,
+        "y": 400,
+        "wires": [
+            [
+                "c328d01e.02173"
+            ]
+        ]
+    },
+    {
+        "id": "27de335e.21674c",
+        "type": "function",
+        "z": "ea1113cf.80245",
+        "name": "Fan_Rate",
+        "func": "msg.payload = msg.payload.fan_rate;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 480,
+        "y": 460,
+        "wires": [
+            [
+                "d9ab83ba.de0fb"
+            ]
+        ]
+    },
+    {
+        "id": "d9ab83ba.de0fb",
+        "type": "ui_dropdown",
+        "z": "ea1113cf.80245",
+        "name": "",
+        "label": "Fan Rate",
+        "tooltip": "",
+        "place": "Select option",
+        "group": "f6793420.7c32f8",
+        "order": 4,
+        "width": "3",
+        "height": "1",
+        "passthru": false,
+        "multiple": false,
+        "options": [
+            {
+                "label": "Auto",
+                "value": "AUTO",
+                "type": "str"
+            },
+            {
+                "label": "Silent",
+                "value": "SILENT",
+                "type": "str"
+            },
+            {
+                "label": "1",
+                "value": "LEVEL_1",
+                "type": "str"
+            },
+            {
+                "label": "2",
+                "value": "LEVEL_2",
+                "type": "str"
+            },
+            {
+                "label": "3",
+                "value": "LEVEL_3",
+                "type": "str"
+            },
+            {
+                "label": "4",
+                "value": "LEVEL_4",
+                "type": "str"
+            },
+            {
+                "label": "5",
+                "value": "LEVEL_5",
+                "type": "str"
+            }
+        ],
+        "payload": "",
+        "topic": "topic",
+        "topicType": "msg",
+        "x": 680,
+        "y": 460,
+        "wires": [
+            [
+                "87be397e.38f408"
+            ]
+        ]
+    },
+    {
+        "id": "2316fdba.b10c32",
+        "type": "function",
+        "z": "ea1113cf.80245",
+        "name": "Fan_Sweep",
+        "func": "msg.payload = msg.payload.fan_sweep;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 490,
+        "y": 520,
+        "wires": [
+            [
+                "f64f4855.9f7398"
+            ]
+        ]
+    },
+    {
+        "id": "f64f4855.9f7398",
+        "type": "ui_dropdown",
+        "z": "ea1113cf.80245",
+        "name": "",
+        "label": "Sweep",
+        "tooltip": "",
+        "place": "Select option",
+        "group": "f6793420.7c32f8",
+        "order": 5,
+        "width": "3",
+        "height": "1",
+        "passthru": false,
+        "multiple": false,
+        "options": [
+            {
+                "label": "None",
+                "value": "OFF",
+                "type": "str"
+            },
+            {
+                "label": "Vertical",
+                "value": "VERTICAL",
+                "type": "str"
+            },
+            {
+                "label": "Horizontal",
+                "value": "HORIZONTAL",
+                "type": "str"
+            },
+            {
+                "label": "3-D",
+                "value": "BOTH",
+                "type": "str"
+            }
+        ],
+        "payload": "",
+        "topic": "topic",
+        "topicType": "msg",
+        "x": 670,
+        "y": 520,
+        "wires": [
+            [
+                "c4702716.b4e9b8"
+            ]
+        ]
+    },
+    {
+        "id": "2fbf7622.1e71aa",
+        "type": "ui_slider",
+        "z": "ea1113cf.80245",
+        "name": "",
+        "label": "Setting",
+        "tooltip": "",
+        "group": "f6793420.7c32f8",
+        "order": 2,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "outs": "end",
+        "topic": "topic",
+        "topicType": "msg",
+        "min": 0,
+        "max": "40",
+        "step": 1,
+        "x": 680,
+        "y": 340,
+        "wires": [
+            [
+                "f8ed4a86.6022f8"
+            ]
+        ]
+    },
+    {
+        "id": "58a31560.24451c",
+        "type": "function",
+        "z": "ea1113cf.80245",
+        "name": "Set_Temp",
+        "func": "msg.payload = msg.payload.set_temp;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 480,
+        "y": 340,
+        "wires": [
+            [
+                "2fbf7622.1e71aa"
+            ]
+        ]
+    },
+    {
+        "id": "13af124d.218d5e",
+        "type": "mqtt out",
+        "z": "ea1113cf.80245",
+        "name": "",
+        "topic": "",
+        "qos": "0",
+        "retain": "false",
+        "broker": "fb4e4d64.1c3728",
+        "x": 1150,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "c74e337e.b4481",
+        "type": "ui_text",
+        "z": "ea1113cf.80245",
+        "group": "f6793420.7c32f8",
+        "order": 7,
+        "width": "3",
+        "height": "1",
+        "name": "",
+        "label": "Updated",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 680,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "f7ed7f50.a7f1f",
+        "type": "function",
+        "z": "ea1113cf.80245",
+        "name": "Timestamp",
+        "func": "msg.payload = msg.payload.timestamp;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 490,
+        "y": 580,
+        "wires": [
+            [
+                "c74e337e.b4481"
+            ]
+        ]
+    },
+    {
+        "id": "5d670add.570584",
+        "type": "function",
+        "z": "ea1113cf.80245",
+        "name": "Power",
+        "func": "msg.payload = msg.payload.power;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 470,
+        "y": 280,
+        "wires": [
+            [
+                "9fa1dc5a.eac9b"
+            ]
+        ]
+    },
+    {
+        "id": "9fa1dc5a.eac9b",
+        "type": "ui_switch",
+        "z": "ea1113cf.80245",
+        "name": "",
+        "label": "Power",
+        "tooltip": "",
+        "group": "f6793420.7c32f8",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "decouple": "true",
+        "topic": "daikin2mqtt/Steve_Office/set/controls",
+        "topicType": "str",
+        "style": "",
+        "onvalue": "true",
+        "onvalueType": "bool",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "false",
+        "offvalueType": "bool",
+        "officon": "",
+        "offcolor": "",
+        "animate": false,
+        "x": 670,
+        "y": 280,
+        "wires": [
+            [
+                "4cde9e1c.22479"
+            ]
+        ]
+    },
+    {
+        "id": "4cde9e1c.22479",
+        "type": "function",
+        "z": "ea1113cf.80245",
+        "name": "PowerToJSON",
+        "func": "if (msg.payload) {\n    msg.payload = \"{\\\"power\\\": true}\";\n} else {\n    msg.payload = \"{\\\"power\\\": false}\";\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 880,
+        "y": 280,
+        "wires": [
+            [
+                "13af124d.218d5e"
+            ]
+        ]
+    },
+    {
+        "id": "f8ed4a86.6022f8",
+        "type": "function",
+        "z": "ea1113cf.80245",
+        "name": "SetTempToJSON",
+        "func": "msg.payload = \"{\\\"set_temp\\\": \" + msg.payload + \"}\";\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 890,
+        "y": 340,
+        "wires": [
+            [
+                "13af124d.218d5e"
+            ]
+        ]
+    },
+    {
+        "id": "499e753c.56ab4c",
+        "type": "function",
+        "z": "ea1113cf.80245",
+        "name": "ModeToJSON",
+        "func": "msg.payload = \"{\\\"mode\\\": \\\"\" + msg.payload + \"\\\"}\";\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 880,
+        "y": 400,
+        "wires": [
+            [
+                "13af124d.218d5e"
+            ]
+        ]
+    },
+    {
+        "id": "87be397e.38f408",
+        "type": "function",
+        "z": "ea1113cf.80245",
+        "name": "FanRateToJSON",
+        "func": "msg.payload = \"{\\\"fan_rate\\\": \\\"\" + msg.payload + \"\\\"}\";\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 890,
+        "y": 460,
+        "wires": [
+            [
+                "13af124d.218d5e"
+            ]
+        ]
+    },
+    {
+        "id": "c4702716.b4e9b8",
+        "type": "function",
+        "z": "ea1113cf.80245",
+        "name": "FanSweepToJSON",
+        "func": "msg.payload = \"{\\\"fan_sweep\\\": \\\"\" + msg.payload + \"\\\"}\";\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 890,
+        "y": 520,
+        "wires": [
+            [
+                "13af124d.218d5e"
+            ]
+        ]
+    },
+    {
+        "id": "fb4e4d64.1c3728",
+        "type": "mqtt-broker",
+        "name": "Local MQTT Broker",
+        "broker": "localhost",
+        "port": "1883",
+        "clientid": "",
+        "usetls": false,
+        "compatmode": false,
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": ""
+    },
+    {
+        "id": "f6793420.7c32f8",
+        "type": "ui_group",
+        "name": "Steve's Room",
+        "tab": "fa73fa38.094308",
+        "order": 1,
+        "disp": true,
+        "width": "6",
+        "collapse": false
+    },
+    {
+        "id": "fa73fa38.094308",
+        "type": "ui_tab",
+        "name": "Steve's Room",
+        "icon": "dashboard",
+        "disabled": false,
+        "hidden": false
+    }
+]

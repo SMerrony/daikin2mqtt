@@ -12,8 +12,8 @@ communicates with them mainly in response to MQTT messages.
 
 ## Rationale and Inspiration
 The connectivity of these HVAC units is known to be rather temperamental; units seem to appear and disappear occasionally 
-even on well-configured WiFi networks.  This project aims to smooth out these wrinkles as much as possible and provide a
-simple to use MQTT interface that will be accessible by most home automation systems and MQTT dashboards.
+even on well-configured WiFi networks.  This project aims to smooth out these wrinkles as much as possible and _provide a
+simple to use MQTT interface that will be accessible by most home automation systems and MQTT dashboards._
 
 We adopt the old Unix&trade; philosophy of trying to 'do just one thing and do it well'.
 
