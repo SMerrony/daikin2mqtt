@@ -60,6 +60,8 @@ func main() {
 
 	go dk.MonitorUnits()
 
+	go dk.DiscoveryLoop()
+
 	dk.MonitorRequests()
 
 	// time.Sleep(5 * time.Second)

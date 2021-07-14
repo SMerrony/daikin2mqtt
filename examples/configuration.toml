@@ -8,8 +8,9 @@ port = 1883                         # Required: MQTT port
 # password = "my_password"          # Optional: MQTT broker password (default: nothing)
 
 [daikin]
-discovery_timeout = 5               # Required: No. secs to wait for units to respond
-update_period = 60                  # Required: Pause (s) between fetching updates from inverters
+discovery_timeout = 5               # Required: Seconds to wait for units to respond
+rediscovery_minutes = 20            # Required: Minutes between unit discovery attempts
+update_period = 60                  # Required: Seconds pause (s) between fetching updates from inverters
 
 [[inverter]]
   mac = "C0E434E69F27"              # Required: The unpunctuated MAC address of the unit

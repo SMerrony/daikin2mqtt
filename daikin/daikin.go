@@ -26,25 +26,30 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/SMerrony/daikin2mqtt/mqtt"
 )
 
+// DaikinConfT contains the unmarshalled TOML config
 type DaikinConfT struct {
-	Discovery_Timeout int
-	Update_Period     int
+	Discovery_Timeout   int
+	Rediscovery_Minutes int
+	Update_Period       int
 }
 
+// InverterConfT contains the unmarshalled TOML for one inverter
 type InverterConfT struct {
 	Mac           string
 	Friendly_Name string
 }
 
-// these are the known Daikin 'end-points'
+// these are all the known Daikin 'end-points', we do not use them all
 const (
 	getBasicInfo    = "/common/basic_info"
 	getRemoteMethod = "/common/get_remote_method"
+	setRegionCode   = "/common/set_regioncode"
 	getModelInfo    = "/aircon/get_model_info"
 	getControlInfo  = "/aircon/get_control_info"
 	getSchedTimer   = "/aircon/get_scdtimer"
@@ -135,6 +140,7 @@ type InverterT struct {
 
 type DaikinT struct {
 	conf            DaikinConfT
+	invertersMu     sync.RWMutex
 	inverters       map[string]InverterT // mapped by MAC
 	invertersByName map[string]string    // map friendly name to MAC
 	httpReqClient   *http.Client
@@ -142,8 +148,10 @@ type DaikinT struct {
 }
 
 // Create sets up a new DaikinT struct and adds any configured inverters
-func Create(dConf DaikinConfT, iConf []InverterConfT, mq mqtt.MQTT_T) (d DaikinT) {
+func Create(dConf DaikinConfT, iConf []InverterConfT, mq mqtt.MQTT_T) *DaikinT {
+	var d DaikinT
 	d.conf = dConf
+	// d.invertersMu.Lock()
 	d.inverters = make(map[string]InverterT)
 	d.invertersByName = make(map[string]string)
 	for _, c := range iConf {
@@ -159,15 +167,12 @@ func Create(dConf DaikinConfT, iConf []InverterConfT, mq mqtt.MQTT_T) (d DaikinT
 		d.invertersByName[c.Friendly_Name] = c.Mac
 	}
 	log.Printf("INFO: %d Inverters found in configuration", len(d.inverters))
+	// d.invertersMu.Unlock()
 	d.httpReqClient = &http.Client{
 		Timeout: time.Second, // TODO parm?
 	}
 	d.mq = mq
-	return d
-}
-
-func (d *DaikinT) Start(conf DaikinConfT) {
-	//d.conf = conf
+	return &d
 }
 
 func parseBasicInfo(buffer []byte) (BI BasicInfoT) {
@@ -403,13 +408,22 @@ func (d *DaikinT) Discover() {
 			bi = parseBasicInfo(buf[:n])
 			bi.address = "http://" + host + ":80"
 
-			if inv, found := d.inverters[bi.mac_address]; found {
+			d.invertersMu.RLock()
+			inv, found := d.inverters[bi.mac_address]
+			d.invertersMu.RUnlock()
+
+			if found {
 				if inv.configured {
 					if inv.detected {
-						// already known and detected, just mark as online
+						// already known and detected, just (re)mark as online
 						inv.online = true
+						if bi.address != inv.basicInfo.address {
+							log.Printf("INFO: Detected IP address change for inverter %s\n", inv.friendlyName)
+							inv.basicInfo.address = bi.address
+						}
 					} else {
 						// first detection of configured inverter
+						log.Printf("INFO: Discovered configured Inverter %s\n", inv.friendlyName)
 						inv.detected = true
 						inv.online = true
 						inv.basicInfo = bi
@@ -418,7 +432,9 @@ func (d *DaikinT) Discover() {
 					// already detected, but not configured by user
 					inv.online = true
 				}
+				d.invertersMu.Lock()
 				d.inverters[bi.mac_address] = inv
+				d.invertersMu.Unlock()
 			} else {
 				log.Printf("INFO: Discovered UNCONFIGURED Inverter with MAC address: %s and unit name set to: %s\n",
 					bi.mac_address, bi.name)
@@ -427,10 +443,22 @@ func (d *DaikinT) Discover() {
 				i.detected = true
 				i.online = true
 				i.basicInfo = bi
+				d.invertersMu.Lock()
 				d.inverters[bi.mac_address] = i
+				d.invertersMu.Unlock()
 			}
 		}
 	} // end loop
+}
+
+// DiscoveryLoop reruns Discovery according to the configured interval 'rediscovery_minutes'
+// It could be run either as a Goroutine or as the final event loop.
+func (d *DaikinT) DiscoveryLoop() {
+	ticker := time.NewTicker(time.Duration(d.conf.Rediscovery_Minutes) * time.Minute)
+	for {
+		<-ticker.C
+		d.Discover()
+	}
 }
 
 func (d *DaikinT) httpGet(url string) (ba []byte, err error) {
@@ -558,7 +586,7 @@ func (d *DaikinT) sendControlInfo(inverter InverterT, CIjson []byte) {
 			stemp = strconv.Itoa(newCI.setTemp)
 			shum = strconv.Itoa(newCI.setHumidity)
 			frate = inverseFanRateMap[newCI.fanRate]
-			fdir = strconv.Itoa(inverseFanDirMap[newCI.fanRate])
+			fdir = strconv.Itoa(inverseFanDirMap[newCI.fanSweep])
 
 			args := fmt.Sprintf(setControlFmt, pow, mode, stemp, frate, fdir, shum)
 			_, err := d.httpGet(inverter.basicInfo.address + setControlInfo + args)
@@ -573,7 +601,9 @@ func (d *DaikinT) sendControlInfo(inverter InverterT, CIjson []byte) {
 func (d *DaikinT) MonitorUnits() {
 	// var SI SensorInfoT
 	for { // executed every conf.Update_Period seconds
+		d.invertersMu.RLock()
 		for _, inv := range d.inverters {
+			d.invertersMu.RUnlock()
 			// loop over all configured inverters that are online
 			if (inv.configured) && (inv.online) {
 				d.fetchAndPublishSensorInfo(inv)
@@ -581,7 +611,9 @@ func (d *DaikinT) MonitorUnits() {
 				time.Sleep(150 * time.Millisecond) // TODO parm?
 				d.fetchAndPublishControlInfo(inv)
 			}
+			d.invertersMu.RLock()
 		}
+		d.invertersMu.RUnlock()
 		time.Sleep(time.Duration(d.conf.Update_Period) * time.Second)
 	}
 }
@@ -592,23 +624,31 @@ func (d *DaikinT) MonitorRequests() {
 	reqChan := d.mq.SubscribeToSubTopic("/+/+/+") // subscribe to get and set subtopics for all units
 	for {
 		req := <-reqChan
-		//     	payload := string(req.Payload.([]uint8))
 		// topic format is base_topic/friendly_name/set|get/info_type
 		topicSlice := strings.Split(req.Subtopic, "/")
 		friendlyName := topicSlice[1]
 		command := topicSlice[2]
 		infoType := topicSlice[3]
 		log.Printf("DEBUG: Got command %s, %s for unit %s\n", command, infoType, friendlyName)
-		if mac, found := d.invertersByName[friendlyName]; found {
+
+		var inv InverterT
+		d.invertersMu.RLock()
+		mac, found := d.invertersByName[friendlyName]
+		if found {
+			inv = d.inverters[mac]
+		}
+		d.invertersMu.RUnlock()
+
+		if found {
 			switch command {
 			case "get":
 				switch infoType {
 				case "basic":
-					d.fetchAndPublishBasicInfo(d.inverters[mac])
+					d.fetchAndPublishBasicInfo(inv)
 				case "controls":
-					d.fetchAndPublishControlInfo(d.inverters[mac])
+					d.fetchAndPublishControlInfo(inv)
 				case "sensors":
-					d.fetchAndPublishSensorInfo(d.inverters[mac])
+					d.fetchAndPublishSensorInfo(inv)
 				default:
 					log.Printf("WARNING: Unrecognised get subtopic `%s` received via MQTT\n", infoType)
 				}
@@ -616,9 +656,9 @@ func (d *DaikinT) MonitorRequests() {
 				switch infoType {
 				case "controls":
 					jsonCI := req.Payload.([]byte)
-					d.sendControlInfo(d.inverters[mac], jsonCI)
+					d.sendControlInfo(inv, jsonCI)
 					time.Sleep(750 * time.Millisecond) // the unit needs time to handle the request
-					d.fetchAndPublishControlInfo(d.inverters[mac])
+					d.fetchAndPublishControlInfo(inv)
 				default:
 					log.Printf("WARNING: Unrecognised set subtopic `%s` received via MQTT\n", infoType)
 				}
