@@ -171,8 +171,8 @@
             }
         ],
         "payload": "",
-        "topic": "topic",
-        "topicType": "msg",
+        "topic": "daikin2mqtt/Steve_Office/set/controls",
+        "topicType": "str",
         "x": 670,
         "y": 400,
         "wires": [
@@ -269,8 +269,8 @@
             }
         ],
         "payload": "",
-        "topic": "topic",
-        "topicType": "msg",
+        "topic": "daikin2mqtt/Steve_Office/set/controls",
+        "topicType": "str",
         "x": 680,
         "y": 460,
         "wires": [
@@ -334,8 +334,8 @@
             }
         ],
         "payload": "",
-        "topic": "topic",
-        "topicType": "msg",
+        "topic": "daikin2mqtt/Steve_Office/set/controls",
+        "topicType": "str",
         "x": 670,
         "y": 520,
         "wires": [
@@ -357,8 +357,8 @@
         "height": 0,
         "passthru": false,
         "outs": "end",
-        "topic": "topic",
-        "topicType": "msg",
+        "topic": "daikin2mqtt/Steve_Office/set/controls",
+        "topicType": "str",
         "min": 0,
         "max": "40",
         "step": 1,

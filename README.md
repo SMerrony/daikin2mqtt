@@ -11,7 +11,7 @@ Daikin2mqtt runs as a background service or *daemon* and keeps track of the avai
 communicates with them mainly in response to MQTT messages.
 
 ## User Guide
-See USER_GUIDE.md
+See [USER_GUIDE.md](USER_GUIDE.md)
 
 ## Rationale and Inspiration
 The connectivity of these HVAC units is known to be rather temperamental; units seem to appear and disappear occasionally 
