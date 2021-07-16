@@ -92,7 +92,7 @@ const (
 	udpQuery = "DAIKIN_UDP" + getBasicInfo
 )
 
-type BasicInfoT struct {
+type basicInfoT struct {
 	address          string
 	mac_address      string
 	firmware_version string
@@ -108,7 +108,7 @@ type BasicInfoT struct {
 	timestamp        time.Time
 }
 
-type ControlInfoT struct {
+type controlInfoT struct {
 	retOK       bool
 	power       bool      // `json:"power"`
 	mode        string    // `json:"mode"`
@@ -119,7 +119,7 @@ type ControlInfoT struct {
 	timestamp   time.Time // `json:"timestamp"`
 }
 
-type SensorInfoT struct {
+type sensorInfoT struct {
 	retOK        bool
 	unitTemp     float32
 	unitHumidity float32
@@ -128,20 +128,20 @@ type SensorInfoT struct {
 	timestamp    time.Time
 }
 
-type InverterT struct {
+type inverterT struct {
 	friendlyName string
 	configured,
 	detected,
 	online bool
-	basicInfo BasicInfoT // the Daikin 'basic' info returned when we detect the unit
-	// SensorInfo  SensorInfoT
-	// controlInfo ControlInfoT
+	basicInfo basicInfoT // the Daikin 'basic' info returned when we detect the unit
+	// SensorInfo  sensorInfoT
+	// controlInfo controlInfoT
 }
 
 type DaikinT struct {
 	conf            DaikinConfT
 	invertersMu     sync.RWMutex
-	inverters       map[string]InverterT // mapped by MAC
+	inverters       map[string]inverterT // mapped by MAC
 	invertersByName map[string]string    // map friendly name to MAC
 	httpReqClient   *http.Client
 	mq              mqtt.MQTT_T
@@ -152,13 +152,13 @@ func Create(dConf DaikinConfT, iConf []InverterConfT, mq mqtt.MQTT_T) *DaikinT {
 	var d DaikinT
 	d.conf = dConf
 	// d.invertersMu.Lock()
-	d.inverters = make(map[string]InverterT)
+	d.inverters = make(map[string]inverterT)
 	d.invertersByName = make(map[string]string)
 	for _, c := range iConf {
 		if _, found := d.inverters[c.Mac]; found {
 			log.Fatalln("ERROR: Cannot configure the same inverter more than once")
 		}
-		var i InverterT
+		var i inverterT
 		i.friendlyName = c.Friendly_Name
 		i.configured = true
 		i.detected = false
@@ -175,7 +175,7 @@ func Create(dConf DaikinConfT, iConf []InverterConfT, mq mqtt.MQTT_T) *DaikinT {
 	return &d
 }
 
-func parseBasicInfo(buffer []byte) (BI BasicInfoT) {
+func parseBasicInfo(buffer []byte) (BI basicInfoT) {
 	var key, val string
 	var i64 int64
 	inKey := true
@@ -235,7 +235,7 @@ func boolToJSON(val bool) string {
 	}
 }
 
-func basicInfoToJSON(BI BasicInfoT) (JSON string) {
+func basicInfoToJSON(BI basicInfoT) (JSON string) {
 	JSON = "{\"firmware_version\":\"" + BI.firmware_version + "\"" +
 		",\"power\":" + boolToJSON(BI.powered_on) +
 		",\"error\":" + strconv.Itoa(BI.error_code) +
@@ -247,7 +247,7 @@ func basicInfoToJSON(BI BasicInfoT) (JSON string) {
 	return JSON
 }
 
-func parseControlInfo(buffer []byte) (CI ControlInfoT) {
+func parseControlInfo(buffer []byte) (CI controlInfoT) {
 	var key, val string
 	var i64 int64
 	var f64 float64
@@ -302,7 +302,7 @@ func parseControlInfo(buffer []byte) (CI ControlInfoT) {
 	return CI
 }
 
-func controlInfoToJSON(CI ControlInfoT) (JSON string) {
+func controlInfoToJSON(CI controlInfoT) (JSON string) {
 	JSON = "{\"power\":"
 	if CI.power {
 		JSON += "true"
@@ -318,7 +318,7 @@ func controlInfoToJSON(CI ControlInfoT) (JSON string) {
 	return JSON
 }
 
-func parseSensorInfo(buffer []byte) (SI SensorInfoT) {
+func parseSensorInfo(buffer []byte) (SI sensorInfoT) {
 	var key, val string
 	var i64 int64
 	var f64 float64
@@ -367,7 +367,7 @@ func parseSensorInfo(buffer []byte) (SI SensorInfoT) {
 	return SI
 }
 
-func sensorInfoToJSON(SI SensorInfoT) (JSON string) {
+func sensorInfoToJSON(SI sensorInfoT) (JSON string) {
 	JSON = fmt.Sprintf("{\"unit_temp\":%3.1f,\"unit_humidity\":%d,\"ext_temp\":%3.1f,\"error\":%d,\"timestamp\":\"%s\"}",
 		SI.unitTemp, int(SI.unitHumidity), SI.extTemp, SI.errorCode, SI.timestamp.Format("15:04:05"))
 	return JSON
@@ -401,8 +401,8 @@ func (d *DaikinT) Discover() {
 		}
 		if !strings.HasSuffix(unitAddr.String(), udpPort) {
 			var (
-				//i  InverterT
-				bi BasicInfoT
+				//i  inverterT
+				bi basicInfoT
 			)
 			host, _, _ := net.SplitHostPort(unitAddr.String())
 			bi = parseBasicInfo(buf[:n])
@@ -438,7 +438,7 @@ func (d *DaikinT) Discover() {
 			} else {
 				log.Printf("INFO: Discovered UNCONFIGURED Inverter with MAC address: %s and unit name set to: %s\n",
 					bi.mac_address, bi.name)
-				var i InverterT
+				var i inverterT
 				i.configured = false
 				i.detected = true
 				i.online = true
@@ -474,8 +474,8 @@ func (d *DaikinT) httpGet(url string) (ba []byte, err error) {
 	return body, nil
 }
 
-func (d *DaikinT) fetchAndPublishBasicInfo(inverter InverterT) {
-	var BI BasicInfoT
+func (d *DaikinT) fetchAndPublishBasicInfo(inverter inverterT) {
+	var BI basicInfoT
 	ba, err := d.httpGet(inverter.basicInfo.address + getBasicInfo)
 	if err != nil {
 		log.Printf("WARNING: Basic Information request failed for %s with %s\n",
@@ -493,8 +493,8 @@ func (d *DaikinT) fetchAndPublishBasicInfo(inverter InverterT) {
 	}
 }
 
-func (d *DaikinT) fetchAndPublishSensorInfo(inverter InverterT) {
-	var SI SensorInfoT
+func (d *DaikinT) fetchAndPublishSensorInfo(inverter inverterT) {
+	var SI sensorInfoT
 	ba, err := d.httpGet(inverter.basicInfo.address + getSensorInfo)
 	if err != nil {
 		log.Printf("WARNING: Sensor Information request failed for %s with %s\n",
@@ -512,7 +512,7 @@ func (d *DaikinT) fetchAndPublishSensorInfo(inverter InverterT) {
 	}
 }
 
-func (d *DaikinT) fetchControlInfo(inverter InverterT) (CI ControlInfoT, ok bool) {
+func (d *DaikinT) fetchControlInfo(inverter inverterT) (CI controlInfoT, ok bool) {
 	ok = true
 	ba, err := d.httpGet(inverter.basicInfo.address + getControlInfo)
 	if err != nil {
@@ -527,7 +527,7 @@ func (d *DaikinT) fetchControlInfo(inverter InverterT) (CI ControlInfoT, ok bool
 	return CI, ok
 }
 
-func (d *DaikinT) fetchAndPublishControlInfo(inverter InverterT) {
+func (d *DaikinT) fetchAndPublishControlInfo(inverter inverterT) {
 	CI, ok := d.fetchControlInfo(inverter)
 	if ok {
 		subtopic := "/" + inverter.friendlyName + "/controls"
@@ -548,7 +548,7 @@ func modeIndex(mode string) int {
 
 // sendControlInfo fetches the current CI of a unit, then sends it back with
 // any changes
-func (d *DaikinT) sendControlInfo(inverter InverterT, CIjson []byte) {
+func (d *DaikinT) sendControlInfo(inverter inverterT, CIjson []byte) {
 	var userData map[string]interface{}
 	err := json.Unmarshal(CIjson, &userData)
 	if err != nil {
@@ -599,7 +599,7 @@ func (d *DaikinT) sendControlInfo(inverter InverterT, CIjson []byte) {
 
 // MonitorUnits should be run as a Goroutine
 func (d *DaikinT) MonitorUnits() {
-	// var SI SensorInfoT
+	// var SI sensorInfoT
 	for { // executed every conf.Update_Period seconds
 		d.invertersMu.RLock()
 		for _, inv := range d.inverters {
@@ -631,7 +631,7 @@ func (d *DaikinT) MonitorRequests() {
 		infoType := topicSlice[3]
 		log.Printf("DEBUG: Got command %s, %s for unit %s\n", command, infoType, friendlyName)
 
-		var inv InverterT
+		var inv inverterT
 		d.invertersMu.RLock()
 		mac, found := d.invertersByName[friendlyName]
 		if found {
