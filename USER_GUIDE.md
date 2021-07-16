@@ -1,10 +1,31 @@
 # Daikin2MQTT User Guide
 
+## Contents
+  - [Build from Source](#build-from-source)
+  - [Configuration](#configuration)
+  - [MQTT Topics](#mqtt-topics)
+    - [Get Subtopics](#get-subtopics)
+    - [Set Subtopics](#set-subtopics)
+  - [MQTT Messages](#mqtt-messages)
+    - [Basic](#basic)
+    - [Controls](#controls)
+    - [Sensors](#sensors)
+
+## Build from Source
+*daikin2mqtt* is written in Go - you will need Go 1.16 or later installed to build the software.
+
+Having either `git clone`d the repo, or downloaded and uncompressed a source package, simply...
+
+```
+cd daikin2mqtt                      # or whichever directory you placed the files
+go build cmd/daikin2mqtt.go
+```
+
 ## Configuration
 
 Configuration is performed via a single TOML file, when you start the program you must pass it the name of your configuration file eg. 
 
-`daikin2mqtt -conf /home/ha_user/daikin2mqtt.toml`
+`./daikin2mqtt -conf /home/ha_user/daikin2mqtt.toml`
 
 Here is a sample configuration showing all available options...
 ```
@@ -30,6 +51,9 @@ update_period = 60                  # Required: Seconds pause (s) between fetchi
   mac = "C0E434E60BC6"             
   friendly_name = "Spare_Bedroom"  
 ```
+Add an `[[inverter]]` section for every unit you want to monitor/control.
+
+A file similar to the above named `configuration.toml` is in the `examples` directory.
 
 ## MQTT Topics
 
@@ -56,10 +80,13 @@ The only subtopic currently defined for `set` is `controls`, you must supply a c
 
 Eg. `daikin2mqtt/Spare_Bedroom/set/controls`
 
-The JSON-formatted control message may contain any number of the fields shown below
-* setting the timestamp is meaningless and will be ignored
-* you can set just one, several, or all of the controls
-* unset controls will be left as-is
+* The JSON-formatted control message may contain any number of the fields shown below
+* Setting the timestamp is meaningless and will be ignored
+* You can set just one, several, or all of the controls
+* Unset controls will be left as-is
+
+In order to simplify use with dashboards (eg. Node-Red), after a successful `set`, 
+*daikin2mqtt* will automatically requery the inverter controls and publish a `controls` message.
 
 ## MQTT Messages
 
