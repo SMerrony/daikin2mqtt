@@ -20,6 +20,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"runtime"
 
 	"github.com/SMerrony/daikin2mqtt/daikin"
 	"github.com/SMerrony/daikin2mqtt/mqtt"
@@ -32,12 +33,23 @@ type ConfigT struct {
 	Inverter []daikin.InverterConfT
 }
 
+const semVer = "v0.1.0" // TODO Update semVer const on each release!
+
 func main() {
 
-	var configFlag = flag.String("conf", "", "directory containing the configuration file")
+	var (
+		configFlag  = flag.String("conf", "", "directory containing the configuration file")
+		versionFlag = flag.Bool("version", false, "display version number and exit")
+	)
+
 	var config ConfigT
 
 	flag.Parse()
+	if *versionFlag {
+		log.Printf("daikin2mqtt version %s built with %s\n", semVer, runtime.Version())
+		return
+	}
+
 	if *configFlag == "" {
 		log.Fatalln("ERROR: You must supply a -conf option")
 	}
