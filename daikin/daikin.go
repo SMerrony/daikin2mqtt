@@ -562,11 +562,18 @@ func (d *DaikinT) sendControlInfo(inverter inverterT, CIjson []byte) {
 			}
 			if newMode, found := userData["mode"]; found {
 				newCI.mode = newMode.(string)
+				// need to set temperature as well in certain cases
+				if newCI.mode != "FAN" && newCI.mode != "DEHUMIDIFY" {
+					_, temp_set := userData["set_temp"]
+					if !temp_set {
+						newCI.setTemp = 20
+					}
+				}
 			}
 			if newStemp, found := userData["set_temp"]; found {
 				newCI.setTemp = int(newStemp.(float64))
 			}
-			if newShum, found := userData["set_dumidity"]; found {
+			if newShum, found := userData["set_humidity"]; found {
 				newCI.setHumidity = int(newShum.(float64))
 			}
 			if newFrate, found := userData["fan_rate"]; found {
@@ -589,6 +596,7 @@ func (d *DaikinT) sendControlInfo(inverter inverterT, CIjson []byte) {
 			fdir = strconv.Itoa(inverseFanDirMap[newCI.fanSweep])
 
 			args := fmt.Sprintf(setControlFmt, pow, mode, stemp, frate, fdir, shum)
+			log.Printf("DEBUG: Sending command to inverter %s: %s\n", inverter.friendlyName, args)
 			_, err := d.httpGet(inverter.basicInfo.address + setControlInfo + args)
 			if err != nil {
 				log.Printf("WARNING: Error sending control command %v\v", err)
