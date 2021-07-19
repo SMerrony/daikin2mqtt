@@ -7,8 +7,7 @@ It is neither endorsed nor supported by Daikin in any way whatsoever. You use th
 ## Description and Purpose
 This project provides a two-way link between some Daikin HVAC units' WiFi interfaces and your MQTT IoT network.
 
-*daikin2mqtt* runs as a background service or *daemon* and keeps track of the availability of the HVAC units and
-communicates with them mainly in response to MQTT messages.
+*daikin2mqtt* runs as a background service or *daemon* and keeps track of the availability of the HVAC units and provides an easy to use MQTT interface.
 
 ## User Guide
 See [USER_GUIDE.md](USER_GUIDE.md)
@@ -20,8 +19,8 @@ even on well-configured WiFi networks.  This project aims to smooth out these wr
 We adopt the old Unix&trade; philosophy of trying to 'do just one thing and do it well'.
 
 We think that https://zigbee2mqtt.io does a great job of standardising its MQTT messages, 
-so we try to model our message structure
-on [theirs](https://www.zigbee2mqtt.io/information/mqtt_topics_and_message_structure.html).
+so our message structure is inspired by 
+[theirs](https://www.zigbee2mqtt.io/information/mqtt_topics_and_message_structure.html).
 
 The predecessor to this project was the [Daikin Integration](https://github.com/SMerrony/aghast/blob/main/docs/Daikin.md) in the https://github.com/SMerrony/aghast project.  In turn, that project was inspired by
 https://github.com/ael-code/daikin-control .

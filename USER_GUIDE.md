@@ -30,22 +30,23 @@ Configuration is performed via a single TOML file, when you start the program yo
 Here is a sample configuration showing all available options...
 ```
 # All configuration options
+# All entries are required unless otherwise specified
 
 [mqtt]
-base_topic = "daikin2mqtt"          # Required: MQTT base topic
-broker = "localhost"                # Required: MQTT broker
-port = 1883                         # Required: MQTT port
-# user = "my_user"                  # Optional: MQTT broker user (default: nothing) - NYI !
-# password = "my_password"          # Optional: MQTT broker password (default: nothing) - NYI !
+base_topic = "daikin2mqtt"          # MQTT base topic
+broker = "localhost"                # MQTT broker
+port = 1883                         # MQTT port
+username = ""                       # MQTT broker user (use "" for none)
+password = ""                       # MQTT broker password (use "" for none)
 
 [daikin]
-discovery_timeout = 5               # Required: Seconds to wait for units to respond
-rediscovery_minutes = 20            # Required: Minutes between unit discovery attempts
-update_period = 60                  # Required: Seconds pause (s) between fetching updates from inverters
+discovery_timeout = 5               # Seconds to wait for units to respond
+rediscovery_minutes = 20            # Minutes between unit discovery attempts
+update_period = 60                  # Seconds pause (s) between regular updates from inverters
 
 [[inverter]]
-  mac = "C0E434E69F27"              # Required: The unpunctuated MAC address of the unit
-  friendly_name = "Steve_Office"    # Required: Will form part of the MQTT topic
+  mac = "C0E434E69F27"              # The unpunctuated MAC address of the unit
+  friendly_name = "Steve_Office"    # Will form part of the MQTT topic
   
 [[inverter]]
   mac = "C0E434E60BC6"             

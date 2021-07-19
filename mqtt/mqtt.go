@@ -64,7 +64,7 @@ func (m *MQTT_T) Start(conf MqttConfT) {
 	m.options.SetClientID(conf.Base_Topic)
 
 	m.connectHandler = func(client mqtt.Client) {
-		log.Println("DEBUG: MQTT Connected to Broker")
+		log.Println("INFO MQTT Connected to Broker")
 	}
 	m.options.OnConnect = m.connectHandler
 

@@ -61,7 +61,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("ERROR: Could not load config due to %s\n", err.Error())
 	}
-	log.Printf("DEBUG: Configuration loaded, MQTT Broker is %s\n", config.Mqtt.Broker)
+	log.Printf("INFO: Configuration loaded, MQTT Broker is %s\n", config.Mqtt.Broker)
 
 	var mq mqtt.MQTT_T
 

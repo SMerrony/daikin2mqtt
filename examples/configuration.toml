@@ -1,26 +1,36 @@
 # All configuration options
+# All entries are required 
 
 [mqtt]
-base_topic = "daikin2mqtt"          # Required: MQTT base topic
-broker = "localhost"                # Required: MQTT broker
-port = 1883                         # Required: MQTT port
-# user = "my_user"                  # Optional: MQTT broker user (default: nothing)
-# password = "my_password"          # Optional: MQTT broker password (default: nothing)
+base_topic = "daikin2mqtt"          # MQTT base topic
+broker = "localhost"                # MQTT broker
+port = 1883                         # MQTT port
+username = ""                       # MQTT broker user (use "" for none)
+password = ""                       # MQTT broker password (use "" for none)
 
 [daikin]
-discovery_timeout = 5               # Required: Seconds to wait for units to respond
-rediscovery_minutes = 20            # Required: Minutes between unit discovery attempts
-update_period = 60                  # Required: Seconds pause (s) between fetching updates from inverters
+discovery_timeout = 5               # Seconds to wait for units to respond
+rediscovery_minutes = 20            # Minutes between unit discovery attempts
+update_period = 60                  # Seconds pause (s) between regular updates from inverters
 
 [[inverter]]
-  mac = "C0E434E69F27"              # Required: The unpunctuated MAC address of the unit
-  friendly_name = "Steve_Office"    # Required: Will form part of the MQTT topic
+  mac = "C0E434E69F27"              # The unpunctuated MAC address of the unit
+  friendly_name = "Steve_Office"    # Will form part of the MQTT topic
   
 [[inverter]]
   mac = "C0E434E60BC6"             
   friendly_name = "Spare_Bedroom"   
 
 [[inverter]]
+  mac = "C0E434E615C3"
+  friendly_name = "Paul_Studio"
+
+[[inverter]]
+  mac = "C0E434E60BA0"
+  friendly_name = "Master_Bedroom"
+
+[[inverter]]
   mac = "D8C0A664E830"             
   friendly_name = "Music_Room"   
+
   
