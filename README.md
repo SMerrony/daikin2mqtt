@@ -1,5 +1,6 @@
 # daikin2mqtt
-A software bridge between certain popular Daikin&trade; HVAC units and MQTT.
+A software bridge between certain popular Daikin&trade; HVAC units and MQTT.  Monitor and control 
+your HVAC from any MQTT-connected dashboard or home automation system.
 
 N.B. This code has been independently developed using a mixture of observed behaviour and information freely available on the Internet. 
 It is neither endorsed nor supported by Daikin in any way whatsoever. You use this software entirely at your own risk.
@@ -7,7 +8,7 @@ It is neither endorsed nor supported by Daikin in any way whatsoever. You use th
 ## Description and Purpose
 This project provides a two-way link between some Daikin HVAC units' WiFi interfaces and your MQTT IoT network.
 
-*daikin2mqtt* runs as a background service or *daemon* and keeps track of the availability of the HVAC units and provides an easy to use MQTT interface.
+*daikin2mqtt* runs as a background service or *daemon* to keep track of the availability of the HVAC units and provide an easy to use MQTT interface with which you can monitor and control the system.
 
 ## User Guide
 See [USER_GUIDE.md](USER_GUIDE.md)
