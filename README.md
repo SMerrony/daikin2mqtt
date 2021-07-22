@@ -11,7 +11,7 @@ This project provides a two-way link between some Daikin HVAC units' WiFi interf
 *daikin2mqtt* runs as a background service or *daemon* to keep track of the availability of the HVAC units and provide an easy to use MQTT interface with which you can monitor and control the system.
 
 ## User Guide
-See [USER_GUIDE.md](USER_GUIDE.md)
+See [our Wiki](https://github.com/SMerrony/daikin2mqtt/wiki).
 
 ## Rationale and Inspiration
 The connectivity of these HVAC units is known to be rather temperamental; units seem to appear and disappear occasionally 
