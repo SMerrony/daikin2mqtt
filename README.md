@@ -43,7 +43,7 @@ We do _not_ expect the BRP072Cnn or SKYFi units to work.
 Please let us know if you can add to the above information.
 
 ## Licence and Copyright
-Copyright © 2021 Stephen Merrony
+Copyright ©2021,2022 Stephen Merrony
 
 Daikin2MQTT is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
