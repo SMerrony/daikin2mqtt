@@ -62,6 +62,7 @@ package Config is
     procedure Load_Config_File (Filename : in String; Verbose : in Boolean);
 
     Could_Not_Parse,
+    Duplicate_Configuration,
     Incomplete_Configuration,
     Unknown_Configuration_Item : exception;
 
