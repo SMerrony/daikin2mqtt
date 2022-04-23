@@ -65,7 +65,7 @@ begin
 
     Config.Load_Config_File (To_String (Config_Arg), Verbose);
 
-    MQTT.Connect (Config.MQTT);
+    MQTT.Connect (Config.MQTT, Verbose);
 
 
 end Daikin2MQTT;

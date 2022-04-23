@@ -21,32 +21,34 @@ with Mosquitto; use Mosquitto;
 with Config;
 
 package MQTT is
-    Mosq_Handle : aliased Mosquitto.Handle;
-    procedure Connect (Conf : in Config.MQTT_T);
 
     task type Pump_T (Connection : access Mosquitto.Handle) is
         entry Start;
     end Pump_T;
 
-    Pump : Pump_T (Mosq_Handle'Access);
-
     type This_App_T is new Mosquitto.Application_Interface with null record;
 
-    overriding procedure On_Message
-     (Self    : not null access This_App_T;
-      Mosq    : Handle_Ref;
-      Mid     : Message_Id;
-      Topic   : String;
-      Payload : Ada.Streams.Stream_Element_Array;
-      QoS     : QoS_Type;
-      Retain  : Boolean);
+    procedure Connect (Conf : in Config.MQTT_T; Verbose : in Boolean);
+    -- Connect to the MQTT broker and start the message pump.
 
-    -- A : aliased Mosquitto.Logging_Application.Application;
-    A : aliased This_App_T;
+    procedure Pub (Subtopic, Payload : in String);
+    -- Simple MQTT message publish using our default QoS and retention.
 
-    MQTT_ID : constant String := "Daikin2MQTT";
-    Keepalive : constant Duration := 30.0;
+    overriding procedure On_Message(Self    : not null access This_App_T;
+                                    Mosq    : Handle_Ref;
+                                    Mid     : Message_Id;
+                                    Topic   : String;
+                                    Payload : Ada.Streams.Stream_Element_Array;
+                                    QoS     : QoS_Type;
+                                    Retain  : Boolean);
 
-    
+    App         : aliased This_App_T;
+    MQTT_ID     : constant String := "Daikin2MQTT";
+    Keepalive   : constant Duration := 30.0;
+
+    MQTT_Conf   : Config.MQTT_T;
+    Verbose     : Boolean;    
+    Mosq_Handle : aliased Mosquitto.Handle;
+    Pump        : Pump_T (Mosq_Handle'Access);
 
 end MQTT;
