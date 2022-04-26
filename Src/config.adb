@@ -43,7 +43,7 @@ package body Config is
                     begin
                         Daikin.Discovery_Timeout_S   := Positive(TOML.As_Integer (TOML.Get (Daikin_Table, "discovery_timeout")));
                         Daikin.Rediscovery_Period_M  := Positive(TOML.As_Integer (TOML.Get (Daikin_Table, "rediscovery_minutes")));
-                        Daikin.Update_Period_S       := Positive(TOML.As_Integer (TOML.Get (Daikin_Table, "update_period")));
+                        Daikin.Update_Period_S       := Duration(TOML.As_Integer (TOML.Get (Daikin_Table, "update_period")));
                         if Verbose then
                             Put_Line ("  Discovery_Timeout_S  :" & Daikin.Discovery_Timeout_S'Image);
                             Put_Line ("  Rediscovery_Period_M :" & Daikin.Rediscovery_Period_M'Image);
@@ -83,11 +83,15 @@ package body Config is
                             if TOML.Has (Inv, "ip_addr") then
                                 Inverters(I).Use_IP_Addr := True;
                                 Inverters(I).IP_Addr     := TOML.As_Unbounded_String (TOML.Get (Inv, "ip_addr"));
+                                Inverters_IP := Inverters_IP + 1;
                             else
                                 Inverters(I).Use_IP_Addr := False;
                                 Inverters(I).MAC_Addr     := TOML.As_Unbounded_String (TOML.Get (Inv, "mac"));
+                                Inverters_MAC := Inverters_MAC + 1;
                             end if;
                         end loop;
+
+                        Inverter_Count := Invs;
 
                         if Verbose then
                             Put_Line ("  Inverters configured :" & Invs'Image);

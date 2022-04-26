@@ -13,8 +13,10 @@
 -- You should have received a copy of the GNU General Public License
 -- along with Daikin2MQTT.  If not, see <https://www.gnu.org/licenses/>.
 
-with "ada_toml.gpr";
-with "mosquitto.gpr";
+with "ada_toml.gpr";    -- installed locally
+with "aws";             -- installed via system package manager
+with "gnatcoll.gpr";    -- installed via system package manager
+with "mosquitto.gpr";   -- installed locally
 
 project Daikin2MQTT is
    type Mode_Type is ("debug", "release");         -- all possible values

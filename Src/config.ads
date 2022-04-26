@@ -20,7 +20,7 @@ package Config is
     type Daikin_T is record
         Discovery_Timeout_S  : Positive;
         Rediscovery_Period_M : Positive;
-        Update_Period_S      : Positive;
+        Update_Period_S      : Duration;
     end record;
 
     Daikin : Daikin_T;
@@ -55,9 +55,12 @@ package Config is
     Inverters : Inverters_T;
     -- Array of configured inverter names and addresses.
 
-    Inverter_Count : Positive;
+    Inverter_Count : Natural := 0;
     -- The number of inverters that are configured,
     -- i.e. present in the configuration file.
+
+    Inverters_MAC, 
+    Inverters_IP    : Natural := 0;
 
     procedure Load_Config_File (Filename : in String; Verbose : in Boolean);
 

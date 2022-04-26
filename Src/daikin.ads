@@ -14,7 +14,8 @@
 -- along with Daikin2MQTT.  If not, see <https://www.gnu.org/licenses/>.
 
 with Ada.Containers.Ordered_Maps;
-with Ada.Real_Time; 
+-- with Ada.Containers.Vectors;
+-- with Ada.Real_Time; 
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 
 with Config;
@@ -73,27 +74,29 @@ package Daikin is
         Holiday_Mode     : Boolean;
         Group_Mode       : Boolean;
         Group_Name       : Unbounded_String;
-        Timestamp        : Ada.Real_Time.Time;
+        Timestamp        : String(1..8);
     end record;
 
     type Control_Info_T is record
         Ret_OK       : Boolean;
-        Power        : Boolean;             -- `json:"power"`
-        Mode         : Unbounded_String;    -- `json:"mode"`
-        Set_Temp     : Natural;             -- `json:"set_temp"`
-        Set_Humidity : Natural;             -- `json:"set_humidity"`
-        Fan_Rate     : Unbounded_String;    -- `json:"fan_rate"`
-        Fan_Sweep    : Unbounded_String;    -- `json:"fan_sweep"`
-        Timestamp    : Ada.Real_Time.Time;  -- `json:"timestamp"`
+        Power        : Boolean;             
+        Mode         : Natural;   
+        Set_Temp     : Natural;             
+        Set_Humidity : Natural;             
+        Fan_Rate     : Character;    
+        Fan_Sweep    : Natural;    
+        Timestamp    : String(1..8);  
     end record;
+
+    type One_DP is delta 0.1 digits 3;
 
     type Sensor_Info_T is record
         Ret_OK        : Boolean;
-        Unit_Temp     : Float;
-        Unit_Humidity : Float;
-        Ext_Temp      : Float;
+        Unit_Temp     : One_DP;
+        Unit_Humidity : Natural;
+        Ext_Temp      : One_DP;
         Error_Code    : Natural;
-        Timestamp     : Ada.Real_Time.Time;
+        Timestamp     : String(1..8);
     end record;
 
     type Inverter_Status_T is record
@@ -109,20 +112,42 @@ package Daikin is
         Basic_Info    : Basic_Info_T; -- the Daikin info returned when we detect the unit
     end record;
 
-    package Inverter_Maps  is new Ada.Containers.Ordered_Maps(Unbounded_String, Inverter_Status_T);
+    package Control_Maps is new Ada.Containers.Ordered_Maps(Unbounded_String, Control_Info_T);
+    package Sensor_Maps  is new Ada.Containers.Ordered_Maps(Unbounded_String, Sensor_Info_T);
+    package Status_Maps  is new Ada.Containers.Ordered_Maps(Unbounded_String, Inverter_Status_T);
+
     package Inverter_Xrefs is new Ada.Containers.Ordered_Maps(Unbounded_String, Unbounded_String);
+
+--    package Inverter_Vectors is new Ada.Containers.Vectors()
+
+    type Inverter_Name_Arr_T is array (Integer range <>) of Unbounded_String;
 
     protected State is
 
         procedure Init (Conf : in Config.Daikin_T; Inv_Conf : in Config.Inverters_T; Verbose : in Boolean);
-    
+        procedure Discover_IP;
+        procedure Discover_UDP;
+        function  Get_Inverter_Status (F_Name : in Unbounded_String) return Inverter_Status_T;
+        function  Get_Online_Inverters return Inverter_Name_Arr_T;
+        procedure Set_Inverter_Online (F_Name : in Unbounded_String; Online : in Boolean);
+        procedure Set_Sensor_Info (F_Name : in Unbounded_String; SI : in Sensor_Info_T);
+        -- Either create a new SI record, or replace an existing one.
+
     private
 
         Daikin_Conf       : Config.Daikin_T;
-        Inverters_By_Name : Inverter_Maps.Map;
+        Inverter_Statuses : Status_Maps.Map;
+        Inverter_Sensors  : Sensor_Maps.Map;
         Inverters_Xref    : Inverter_Xrefs.Map;
         Verbose           : Boolean;
 
     end State;
+
+    task Monitor_Units is
+        entry Start (Period_S : in Duration);
+        entry Stop;
+    end Monitor_Units;
+
+    Unknown_Inverter_Name : exception;
 
 end Daikin;

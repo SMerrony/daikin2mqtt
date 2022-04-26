@@ -2,4 +2,9 @@
 
 ## Prerequisites
 * `ada-toml` from https://github.com/pmderodat/ada-toml
-* `mosquitto` (mosquitto-ada) from https://github.com/persan/mosquitto-ada
+* MQTT-related...
+  * `libmosquitto-dev`
+  * `mosquitto` (mosquitto-ada) from https://github.com/persan/mosquitto-ada
+* `libaws19-dev` (or later)
+* `libgnatcoll-dev`
+  
