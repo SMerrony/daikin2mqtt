@@ -28,6 +28,7 @@ package body MQTT is
         MQTT.Verbose := Verbose;
 
         Mosq_Handle.Initialize (ID => MQTT_ID, Clean_Sessions => False);
+        -- Mosq_Handle.Threaded_Set (True);
         Pump.Start;
         Mosq_Handle.Set_Handler (App'Unchecked_Access);
 
@@ -46,7 +47,7 @@ package body MQTT is
     begin
         Mosq_Handle.Publish (Topic   => To_String (MQTT_Conf.Base_Topic) & Subtopic, 
                              Payload => Payload, 
-                             Qos     => Mosquitto.Qos_1, 
+                             Qos     => Mosquitto.Qos_0, 
                              Retain  => False);
     end Pub;
 
@@ -67,14 +68,14 @@ package body MQTT is
             Put_Line ("DEBUG: MQTT got message in topic: " & Topic & " with payload: " & Overlaid_Data);
         end if;
         Create (S => Subtopics, From => Topic, Separators => "/", Mode => Multiple);
-        Put_Line ("DEBUG: Subtopic: " & Slice (Subtopics, 2));
+        -- Put_Line ("DEBUG: Subtopic: " & Slice (Subtopics, 2));
         if Slice_Count (Subtopics) > 2 then
             if Slice (Subtopics, 3) = "get" then
                 Put_Line ("DEBUG: 'get' request");
             elsif Slice (Subtopics, 3) = "set" then
                 Put_Line ("DEBUG: 'set' request");
-            else
-                Put_Line ("DEBUG: Ignoring this message");
+            -- else
+            --     Put_Line ("DEBUG: Ignoring this message");
             end if;
         elsif Verbose then
             Put_Line ("DEBUG: Ignoring this message");

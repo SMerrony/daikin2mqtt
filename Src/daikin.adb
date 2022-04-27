@@ -76,16 +76,20 @@ package body Daikin is
         CI       : Control_Info_T;
     begin
         CI.Timestamp := Time_HHMMSS;
-        Create (S => KV_Pairs, From => Buffer, Separators => ",", Mode => Multiple);
-        for Ix in 1 .. Slice_Count (KV_Pairs) loop
-            Create (S => KVs, From => Slice(KV_Pairs,Ix), Separators => "=", Mode => Multiple);
+        Create (S => KV_Pairs, From => Buffer, Separators => ",", Mode => Single);
+        -- Put_Line ("DEBUG: Parse_Control_Info - No. of K/V pairs:" & Slice_Count (KV_Pairs)'Image);
+        for Ix in 1 .. Slice_Count (KV_Pairs) loop 
+            Create (S => KVs, From => Slice(KV_Pairs,Ix), Separators => "=", Mode =>Single);
             declare
                 Key : constant String := Slice (KVs, 1);
                 Val : constant String := Slice (KVs, 2);
             begin
+                -- Put_Line ("DEBUG: Parse_Control_Info - Key: " & Key);
+                -- Put_Line ("DEBUG: Parse_Control_Info - Val: " & Val);
                 if    Key = "ret"   then CI.Ret_OK := (Val = "OK");
                 elsif Key = "pow"   then CI.Power  := (Val = "1");
-                elsif Key = "mode"  then CI.Mode   := Natural'Value(Val);
+                elsif Key = "mode"  then 
+                    CI.Mode   := Natural'Value(Val);
                 elsif Key = "stemp" then 
                     -- stemp is returned as a float, but is always integral, 2 exceptions...
                     if Val = "M" or Val = "--" then 
@@ -99,8 +103,12 @@ package body Daikin is
                     else
                         CI.Set_Humidity := Natural(Float'Value(Val));
                     end if;
-                elsif Key = "f_rate" then CI.Fan_Rate  := Val(1);
-                elsif Key = "f_dir"  then CI.Fan_Sweep := Natural'Value(Val);
+                elsif Key = "f_rate" then 
+                    CI.Fan_Rate  := Val(Val'First);
+                elsif Key = "f_dir"  then 
+                    CI.Fan_Sweep := Natural'Value(Val);
+                -- else
+                --     Put_Line ("DEBUG: Ignoring CI Key: " & Key);
                 end if;
             end;
         end loop;
@@ -150,7 +158,7 @@ package body Daikin is
         Query  : constant String := "http://" & IP_addr & Get_Basic_Info;
     begin
         OK := True;
-        Resp   := AWS.Client.Get (Query);
+        Resp   := AWS.Client.Get (URL => Query, Timeouts => AWS.Client.Timeouts(Each => 1.0));
         Status := AWS.Response.Status_Code (Resp);
         if Status not in AWS.Messages.Success then
             Put_Line ("WARNING: Basic Information request failed with error: " & Status'Image & 
@@ -172,7 +180,7 @@ package body Daikin is
         Query  : constant String := "http://" & IP_addr & Get_Control_Info;
     begin
         OK := True;
-        Resp   := AWS.Client.Get (Query);
+        Resp   := AWS.Client.Get (URL => Query, Timeouts => AWS.Client.Timeouts(Each => 1.0));
         Status := AWS.Response.Status_Code (Resp);
         if Status not in AWS.Messages.Success then
             Put_Line ("WARNING: Control Information request failed with error: " & Status'Image & 
@@ -193,7 +201,7 @@ package body Daikin is
         Query  : constant String := "http://" & IP_addr & Get_Sensor_Info;
     begin
         OK := True;
-        Resp   := AWS.Client.Get (Query);
+        Resp   := AWS.Client.Get (URL => Query, Timeouts => AWS.Client.Timeouts(Each => 1.0));
         Status := AWS.Response.Status_Code (Resp);
         if Status not in AWS.Messages.Success then
             Put_Line ("WARNING: Sensor Information request failed with error: " & Status'Image & 
@@ -207,6 +215,40 @@ package body Daikin is
             end;
         end if;
     end Fetch_Sensor_Info;
+
+    function Bool_To_JSON (ItIs : in Boolean) return String is
+    begin
+        if ItIs then return "true"; else return "false"; end if;
+    end Bool_To_JSON;
+
+    function Fan_Rate_To_String (FR : in Character) return String is
+    begin
+        case FR is
+            when 'A' => return "AUTO";
+            when 'B' => return "SILENT";
+            when '3' => return "LEVEL_1";
+            when '4' => return "LEVEL_2";
+            when '5' => return "LEVEL_3";
+            when '6' => return "LEVEL_4";
+            when '7' => return "LEVEL_5";    
+            when others =>
+                raise Unknown_Fan_Rate with "" & FR;
+        end case;
+    end Fan_Rate_To_String;
+
+    function CI_To_JSON (CI : in Control_Info_T) return String is
+        Tmp_Str : Unbounded_String;
+    begin
+        Tmp_Str := +"{ ""power"": " & Bool_To_JSON (CI.Power);
+        Tmp_Str := Tmp_Str & ", ""mode"": """ & Mode_Arr(CI.Mode) & """";
+        Tmp_Str := Tmp_Str & ", ""set_temp"": "  & CI.Set_Temp'Image;
+        Tmp_Str := Tmp_Str & ", ""Set_humidity"":" & CI.Set_Humidity'Image;
+        Tmp_Str := Tmp_Str & ", ""fan-rate"": """ & Fan_Rate_To_String(CI.Fan_Rate) & """";
+        Tmp_Str := Tmp_Str & ", ""fan-sweep"": """ & Fan_Dir_Arr(CI.Fan_Sweep) & """";
+        Tmp_Str := Tmp_Str & ", ""timestamp"": """ & CI.Timestamp & """";
+        Tmp_Str := Tmp_Str & " }";
+        return To_String (Tmp_Str);
+    end CI_To_JSON;
 
     function SI_To_JSON (SI : in Sensor_Info_T) return String is
         Tmp_Str : Unbounded_String;
@@ -225,6 +267,7 @@ package body Daikin is
         Monitoring : Boolean;
         IP_Addr    : Unbounded_String;
         SI         : Sensor_Info_T;
+        CI         : Control_Info_T;
         OK         : Boolean;
     begin
         accept Start (Period_S : in Duration) do
@@ -242,12 +285,20 @@ package body Daikin is
                     Inv_Stat := State.Get_Inverter_Status (I_Name);
 
                     IP_Addr := Inv_Stat.IP_Addr;
+                    Put_Line ("DEBUG: ... Monitor_Units fetching Sensor Info");
                     Fetch_Sensor_Info (IP_Addr => To_String(IP_Addr), SI => SI , OK => OK);
                     if OK then
                         State.Set_Sensor_Info (I_Name, SI);
                         MQTT.Pub ("/" & To_String(I_Name) & "/sensors", SI_To_JSON (SI));
                     end if;
-
+                    delay 0.15;
+                    Put_Line ("DEBUG: ... Monitor_Units fetching Control Info");
+                    Fetch_Control_Info (IP_Addr => To_String(IP_Addr), CI => CI, OK => OK);
+                    if OK then
+                        State.Set_Control_Info (I_Name, CI);
+                        MQTT.Pub ("/" & To_String(I_Name) & "/controls", CI_To_JSON (CI));
+                    end if;
+                    Put_Line ("DEBUG: ... Monitor_Units done for this unit");
                 end loop;
             end;
 
@@ -359,6 +410,19 @@ package body Daikin is
                 return INA;
             end;
         end Get_Online_Inverters;
+
+        procedure Set_Control_Info (F_Name : in Unbounded_String; CI : in Control_Info_T) is
+        begin
+            if Inverter_Controls.Contains (F_Name) then
+                Control_Maps.Replace_Element (Container => Inverter_Controls, 
+                                              Position  => Control_Maps.Find (Inverter_Controls, F_Name), 
+                                              New_Item  => CI);
+            else
+                Control_Maps.Insert (Container => Inverter_Controls, 
+                                     Key       => F_Name, 
+                                     New_Item  => CI);
+            end if;
+        end Set_Control_Info;
 
         procedure Set_Sensor_Info (F_Name : in Unbounded_String; SI : in Sensor_Info_T) is
         begin

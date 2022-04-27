@@ -130,12 +130,17 @@ package Daikin is
         function  Get_Inverter_Status (F_Name : in Unbounded_String) return Inverter_Status_T;
         function  Get_Online_Inverters return Inverter_Name_Arr_T;
         procedure Set_Inverter_Online (F_Name : in Unbounded_String; Online : in Boolean);
+
+        procedure Set_Control_Info (F_Name : in Unbounded_String; CI : in Control_Info_T);
+        -- Either create a new CI record, or replace an existing one.
+
         procedure Set_Sensor_Info (F_Name : in Unbounded_String; SI : in Sensor_Info_T);
         -- Either create a new SI record, or replace an existing one.
 
     private
 
         Daikin_Conf       : Config.Daikin_T;
+        Inverter_Controls : Control_Maps.Map;
         Inverter_Statuses : Status_Maps.Map;
         Inverter_Sensors  : Sensor_Maps.Map;
         Inverters_Xref    : Inverter_Xrefs.Map;
@@ -148,6 +153,9 @@ package Daikin is
         entry Stop;
     end Monitor_Units;
 
+
+
+    Unknown_Fan_Rate,
     Unknown_Inverter_Name : exception;
 
 end Daikin;
