@@ -11,18 +11,18 @@ password = ""                       # MQTT broker password (use "" for none)
 [daikin]
 discovery_timeout = 5               # Seconds to wait for units to respond
 rediscovery_minutes = 20            # Minutes between unit discovery attempts
-update_period = 60                  # Seconds pause (s) between regular updates from inverters
+update_period = 20                  # Seconds pause (s) between regular updates from inverters
 
 [[inverter]]
   ip_addr = "192.168.1.50"          # the IP address of the unit's adaptor
   friendly_name = "Steve_Office"    # Will form part of the MQTT topic
   
 [[inverter]]
-  mac = "C0E434E60BC6"              # The unpunctuated MAC address of the unit
+  ip_addr = "192.168.1.53"
   friendly_name = "Spare_Bedroom"   
 
 [[inverter]]
-  mac = "C0E434E615C3"
+  mac = "C0E434E615C3"              # The unpunctuated MAC address of the unit
   friendly_name = "Paul_Studio"
 
 [[inverter]]

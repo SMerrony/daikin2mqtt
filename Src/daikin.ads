@@ -16,7 +16,10 @@
 with Ada.Containers.Ordered_Maps;
 -- with Ada.Containers.Vectors;
 -- with Ada.Real_Time; 
+with Ada.Streams;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+
+with Mosquitto; use Mosquitto;
 
 with Config;
 
@@ -153,7 +156,34 @@ package Daikin is
         entry Stop;
     end Monitor_Units;
 
+    task type Pump_T (Connection : access Mosquitto.Handle) is
+        entry Start;
+    end Pump_T;
 
+    type This_App_T is new Mosquitto.Application_Interface with null record;
+
+    procedure MQTT_Connect (Conf : in Config.MQTT_T);
+    -- Connect to the MQTT broker and start the message pump.
+
+    procedure MQTT_Pub (Subtopic, Payload : in String);
+    -- Simple MQTT message publish using our default QoS and retention.
+
+    overriding procedure On_Message(Self    : not null access This_App_T;
+                                    Mosq    : Handle_Ref;
+                                    Mid     : Message_Id;
+                                    Topic   : String;
+                                    Payload : Ada.Streams.Stream_Element_Array;
+                                    QoS     : QoS_Type;
+                                    Retain  : Boolean);
+
+    App         : aliased This_App_T;
+    MQTT_ID     : constant String := "Daikin2MQTT";
+    Keepalive   : constant Duration := 30.0;
+
+    MQTT_Conf   : Config.MQTT_T;
+    Verbose     : Boolean;    
+    Mosq_Handle : aliased Mosquitto.Handle;
+    Pump        : Pump_T (Mosq_Handle'Access);
 
     Unknown_Fan_Rate,
     Unknown_Inverter_Name : exception;

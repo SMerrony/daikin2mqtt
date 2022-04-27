@@ -22,7 +22,7 @@ with GNAT.String_Split;
 
 -- with GNATCOLL.JSON;
 
-with MQTT;
+-- with MQTT;
 
 package body Daikin is
 
@@ -289,14 +289,14 @@ package body Daikin is
                     Fetch_Sensor_Info (IP_Addr => To_String(IP_Addr), SI => SI , OK => OK);
                     if OK then
                         State.Set_Sensor_Info (I_Name, SI);
-                        MQTT.Pub ("/" & To_String(I_Name) & "/sensors", SI_To_JSON (SI));
+                        MQTT_Pub ("/" & To_String(I_Name) & "/sensors", SI_To_JSON (SI));
                     end if;
                     delay 0.15;
                     Put_Line ("DEBUG: ... Monitor_Units fetching Control Info");
                     Fetch_Control_Info (IP_Addr => To_String(IP_Addr), CI => CI, OK => OK);
                     if OK then
                         State.Set_Control_Info (I_Name, CI);
-                        MQTT.Pub ("/" & To_String(I_Name) & "/controls", CI_To_JSON (CI));
+                        MQTT_Pub ("/" & To_String(I_Name) & "/controls", CI_To_JSON (CI));
                     end if;
                     Put_Line ("DEBUG: ... Monitor_Units done for this unit");
                 end loop;
@@ -448,5 +448,74 @@ package body Daikin is
 
 
     end State;
+
+    procedure MQTT_Connect (Conf : in Config.MQTT_T) is
+    begin
+        MQTT_Conf    := Conf;
+
+        Mosq_Handle.Initialize (ID => MQTT_ID, Clean_Sessions => False);
+        -- Mosq_Handle.Threaded_Set (True);
+        Pump.Start;
+        Mosq_Handle.Set_Handler (App'Unchecked_Access);
+
+        Mosq_Handle.Connect (Host => To_String (MQTT_Conf.Broker), Port => MQTT_Conf.Port, Keepalive => Keepalive);
+
+        Mosq_Handle.Subscribe (Topic => To_String (MQTT_Conf.Base_Topic) & "/#");
+
+        Mosq_Handle.Publish (Topic   => To_String (MQTT_Conf.Base_Topic) & "/status", 
+                             Payload => "Started", 
+                             Qos     => Mosquitto.Qos_1, 
+                             Retain  => False);
+
+    end MQTT_Connect;
+
+    procedure MQTT_Pub (Subtopic, Payload : in String) is
+    begin
+        Mosq_Handle.Publish (Topic   => To_String (MQTT_Conf.Base_Topic) & Subtopic, 
+                             Payload => Payload, 
+                             Qos     => Mosquitto.Qos_0, 
+                             Retain  => False);
+    end MQTT_Pub;
+
+    overriding procedure On_Message(Self    : not null access This_App_T;
+                                    Mosq    : Handle_Ref;
+                                    Mid     : Message_Id;
+                                    Topic   : String;
+                                    Payload : Ada.Streams.Stream_Element_Array;
+                                    QoS     : QoS_Type;
+                                    Retain  : Boolean) is
+        pragma Unreferenced (Self, Mosq, Mid, QoS, Retain);
+        use GNAT.String_Split;
+        Subtopics : Slice_Set;
+        Overlaid_Data : String (Natural (Payload'First) .. Natural (Payload'Last));
+        pragma Import (C, Overlaid_Data);
+        for Overlaid_Data'Address use Payload'Address;
+    begin
+        if Verbose then
+            Put_Line ("DEBUG: MQTT got message in topic: " & Topic & " with payload: " & Overlaid_Data);
+        end if;
+        Create (S => Subtopics, From => Topic, Separators => "/", Mode => Multiple);
+        -- Put_Line ("DEBUG: Subtopic: " & Slice (Subtopics, 2));
+        if Slice_Count (Subtopics) > 2 then
+            if Slice (Subtopics, 3) = "get" then
+                Put_Line ("DEBUG: 'get' request");
+            elsif Slice (Subtopics, 3) = "set" then
+                Put_Line ("DEBUG: 'set' request");
+            -- else
+            --     Put_Line ("DEBUG: Ignoring this message");
+            end if;
+        elsif Verbose then
+            Put_Line ("DEBUG: Ignoring this message");
+        end if;
+    end On_Message;
+
+    task body Pump_T is
+    begin
+        accept Start;
+        if Verbose then
+            Put_Line ("DEBUG: MQTT message pump started");
+        end if;
+        Connection.Loop_Forever;
+    end Pump_T;
 
 end Daikin;

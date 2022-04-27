@@ -22,7 +22,7 @@ with Ada.Text_IO;             use Ada.Text_IO;
 -- Program packages...
 with Config;
 with Daikin;
-with MQTT;
+-- with MQTT;
 
 procedure Daikin2MQTT is
 
@@ -66,7 +66,7 @@ begin
 
     Config.Load_Config_File (To_String (Config_Arg), Verbose);
 
-    MQTT.Connect (Config.MQTT, Verbose);
+    Daikin.MQTT_Connect (Config.MQTT);
 
     Daikin.State.Init (Conf => Config.Daikin, Inv_Conf => Config.Inverters, Verbose => Verbose);
 
