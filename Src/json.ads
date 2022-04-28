@@ -19,9 +19,11 @@ package JSON is
 
     function Bool_To_JSON (ItIs : in Boolean) return String;
     function Fan_Rate_To_String (FR : in Character) return String;
+
+    function BI_To_JSON (BI : in Basic_Info_T)   return String;
     function CI_To_JSON (CI : in Control_Info_T) return String;
-    function SI_To_JSON (SI : in Sensor_Info_T) return String;
-    
+    function SI_To_JSON (SI : in Sensor_Info_T)  return String;
+
     Unknown_Fan_Rate,
     Unknown_Inverter_Name : exception;
 

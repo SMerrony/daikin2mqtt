@@ -44,6 +44,20 @@ package body Daikin is
         end if;
     end Fetch_Basic_Info;
 
+    procedure Fetch_And_Publish_Basic_Info (IP_Addr : in String) is
+        BI : Basic_Info_T;
+        OK : Boolean;
+    begin
+        Fetch_Basic_Info (IP_Addr, BI, OK);
+        if OK then
+            declare
+                Subtopic : constant String := "/" & State.Get_Name(IP_Addr) & "/basic";
+            begin
+                MQTT_Pub (Subtopic, JSON.BI_To_JSON (BI));
+            end;
+        end if;
+    end Fetch_And_Publish_Basic_Info;
+
     procedure Fetch_Control_Info (IP_Addr : in String; CI : out Control_Info_T; OK : out Boolean) is
         Resp   : AWS.Response.Data;
         Status : AWS.Messages.Status_Code;
@@ -99,6 +113,20 @@ package body Daikin is
             end;
         end if;
     end Fetch_Sensor_Info;
+
+    procedure Fetch_And_Publish_Sensor_Info (IP_Addr : in String) is
+        SI : Sensor_Info_T;
+        OK : Boolean;
+    begin
+        Fetch_Sensor_Info (IP_Addr, SI, OK);
+        if OK then
+            declare
+                Subtopic : constant String := "/" & State.Get_Name(IP_Addr) & "/sensors";
+            begin
+                MQTT_Pub (Subtopic, JSON.SI_To_JSON (SI));
+            end;
+        end if;
+    end Fetch_And_Publish_Sensor_Info;
 
     task body Monitor_Units is
         Period     : Duration;
@@ -342,16 +370,23 @@ package body Daikin is
         end if;
         Create (S => Subtopics, From => Topic, Separators => "/");
         if Slice_Count (Subtopics) > 2 then
-            if Slice (Subtopics, 3) = "get" then
-                Put_Line ("DEBUG: 'get' request");
-                if Slice (Subtopics, 4) = "controls" then
-                    Fetch_And_Publish_Control_Info (State.Get_IP_Addr(Slice (Subtopics, 2)));
+            declare
+                F_Name : constant String := Slice (Subtopics, 2);
+            begin
+                if Slice (Subtopics, 3) = "get" then
+                    if Slice (Subtopics, 4) = "basic" then
+                        Fetch_And_Publish_Basic_Info (State.Get_IP_Addr(F_Name));
+                    elsif Slice (Subtopics, 4) = "controls" then
+                        Fetch_And_Publish_Control_Info (State.Get_IP_Addr(F_Name));
+                    elsif Slice (Subtopics, 4) = "sensors" then
+                        Fetch_And_Publish_Sensor_Info (State.Get_IP_Addr(F_Name)); 
+                    end if;
+                elsif Slice (Subtopics, 3) = "set" then
+                    Put_Line ("DEBUG: 'set' request");
+                elsif Verbose then
+                    Put_Line ("DEBUG: Ignoring this message");
                 end if;
-            elsif Slice (Subtopics, 3) = "set" then
-                Put_Line ("DEBUG: 'set' request");
-            elsif Verbose then
-                Put_Line ("DEBUG: Ignoring this message");
-            end if;
+            end;
         elsif Verbose then
             Put_Line ("DEBUG: Ignoring this message");
         end if;
