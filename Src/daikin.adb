@@ -66,9 +66,17 @@ package body Daikin is
     end Fetch_Control_Info;
 
     procedure Fetch_And_Publish_Control_Info (IP_Addr : in String) is
-
+        CI : Control_Info_T;
+        OK : Boolean;
     begin
-NULL;
+        Fetch_Control_Info (IP_Addr, CI, OK);
+        if OK then
+            declare
+                Subtopic : constant String := "/" & State.Get_Name(IP_Addr) & "/controls";
+            begin
+                MQTT_Pub (Subtopic, JSON.CI_To_JSON (CI));
+            end;
+        end if;
     end Fetch_And_Publish_Control_Info;
 
     procedure Fetch_Sensor_Info (IP_Addr : in String; SI : out Sensor_Info_T; OK : out Boolean) is
@@ -201,6 +209,7 @@ NULL;
                                       OK => OK);
                     if OK then
                         Set_Inverter_Online (Status_Maps.Key (I), True);
+                        Inverters_IP_To_Name.Include (Status_Maps.Element(I).IP_Addr, Status_Maps.Key (I)); 
                     end if;
                 end if;
             end loop;
@@ -276,6 +285,13 @@ NULL;
                                          New_Item  => Inv_Stat);
         end Set_Inverter_Online;
 
+        function Get_IP_Addr (F_Name : in String) return String is
+        begin
+            return To_String (Inverter_Statuses(To_Unbounded_String(F_Name)).IP_Addr);
+        end Get_IP_Addr;
+
+        function Get_Name (IP_Addr : in String) return String is
+            (To_String (Inverters_IP_To_Name(+IP_Addr)));
 
     end State;
 
@@ -328,6 +344,9 @@ NULL;
         if Slice_Count (Subtopics) > 2 then
             if Slice (Subtopics, 3) = "get" then
                 Put_Line ("DEBUG: 'get' request");
+                if Slice (Subtopics, 4) = "controls" then
+                    Fetch_And_Publish_Control_Info (State.Get_IP_Addr(Slice (Subtopics, 2)));
+                end if;
             elsif Slice (Subtopics, 3) = "set" then
                 Put_Line ("DEBUG: 'set' request");
             elsif Verbose then

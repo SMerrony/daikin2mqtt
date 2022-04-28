@@ -80,14 +80,18 @@ package Daikin is
         procedure Set_Sensor_Info (F_Name : in Unbounded_String; SI : in Sensor_Info_T);
         -- Either create a new SI record, or replace an existing one.
 
+        function Get_IP_Addr (F_Name : in String) return String;
+        function Get_Name (IP_Addr : in String) return String;
+
     private
 
-        Daikin_Conf       : Config.Daikin_T;
-        Inverter_Controls : Control_Maps.Map;
-        Inverter_Statuses : Status_Maps.Map;
-        Inverter_Sensors  : Sensor_Maps.Map;
-        Inverters_Xref    : Inverter_Xrefs.Map;
-        Verbose           : Boolean;
+        Daikin_Conf          : Config.Daikin_T;
+        Inverter_Controls    : Control_Maps.Map;
+        Inverter_Statuses    : Status_Maps.Map;
+        Inverter_Sensors     : Sensor_Maps.Map;
+        Inverters_IP_To_Name : Inverter_Xrefs.Map;
+        -- Map IP address to Friendly Name
+        Verbose              : Boolean;
 
     end State;
 
