@@ -22,6 +22,7 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Mosquitto; use Mosquitto;
 
 with Config;
+with Infos;     use Infos;
 
 package Daikin is
 
@@ -40,67 +41,6 @@ package Daikin is
 	Get_Week_Power_Ext : constant String := "/aircon/get_week_power_ex";
 	Get_Year_Power_Ext : constant String := "/aircon/get_year_power_ex";
 	Set_Control_Info   : constant String := "/aircon/set_control_info";
-
-    type Mode_Arr_T is array (0 .. 7) of Unbounded_String;
-    Mode_Arr : constant Mode_Arr_T := (+"AUTO",
-                                       +"AUTO 1",
-                                       +"DEHUMIDIFY",
-                                       +"COOL",
-                                       +"HEAT",
-                                       +"MODE 5",
-                                       +"FAN",
-                                       +"AUTO 2");
-
-    type Fan_Rate_ID_T is ('A', 'B', '3', '4', '5', '6', '7');
-    type Fan_Rates_Arr_T is array (Fan_Rate_ID_T'Range) of Unbounded_String;
-    Fan_Rate_Arr : constant Fan_Rates_Arr_T := (+"AUTO", 
-                                                +"SILENT", 
-                                                +"LEVEL_1", 
-                                                +"LEVEL_2", 
-                                                +"LEVEL_3", 
-                                                +"LEVEL_4", 
-                                                +"LEVEL_5");
-
-    type Fan_Dir_Arr_T is array (0 .. 3) of Unbounded_String;
-    Fan_Dir_Arr : constant Fan_Dir_Arr_T := (+"OFF", +"VERTICAL", +"HORIZONTAL", +"BOTH");
-
-    type Basic_Info_T is record
-        Address          : Unbounded_String;
-        Mac_Address      : Unbounded_String;
-        Firmware_Version : Unbounded_String;
-        Adaptor_Version  : Unbounded_String; -- hex, decode unknown
-        Powered_On       : Boolean;
-        Error_Code       : Natural;
-        Name             : Unbounded_String;
-        Adaptor_Type     : Natural;
-        Adaptor_Led      : Boolean;
-        Holiday_Mode     : Boolean;
-        Group_Mode       : Boolean;
-        Group_Name       : Unbounded_String;
-        Timestamp        : String(1..8);
-    end record;
-
-    type Control_Info_T is record
-        Ret_OK       : Boolean;
-        Power        : Boolean;             
-        Mode         : Natural;   
-        Set_Temp     : Natural;             
-        Set_Humidity : Natural;             
-        Fan_Rate     : Character;    
-        Fan_Sweep    : Natural;    
-        Timestamp    : String(1..8);  
-    end record;
-
-    type One_DP is delta 0.1 digits 3;
-
-    type Sensor_Info_T is record
-        Ret_OK        : Boolean;
-        Unit_Temp     : One_DP;
-        Unit_Humidity : Natural;
-        Ext_Temp      : One_DP;
-        Error_Code    : Natural;
-        Timestamp     : String(1..8);
-    end record;
 
     type Inverter_Status_T is record
         -- This is the 'current' status, not the preconfigured basic_info.
@@ -156,6 +96,8 @@ package Daikin is
         entry Stop;
     end Monitor_Units;
 
+    -- MQTT stuff... --
+
     task type Pump_T (Connection : access Mosquitto.Handle) is
         entry Start;
     end Pump_T;
@@ -175,13 +117,13 @@ package Daikin is
                                     Payload : Ada.Streams.Stream_Element_Array;
                                     QoS     : QoS_Type;
                                     Retain  : Boolean);
+    -- This is a callback fired whenever we receive an MQTT message
 
     App         : aliased This_App_T;
     MQTT_ID     : constant String := "Daikin2MQTT";
     Keepalive   : constant Duration := 30.0;
 
-    MQTT_Conf   : Config.MQTT_T;
-    Verbose     : Boolean;    
+    MQTT_Conf   : Config.MQTT_T;  
     Mosq_Handle : aliased Mosquitto.Handle;
     Pump        : Pump_T (Mosq_Handle'Access);
 

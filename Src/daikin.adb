@@ -13,145 +13,15 @@
 -- You should have received a copy of the GNU General Public License
 -- along with Daikin2MQTT.  If not, see <https://www.gnu.org/licenses/>.
 
-with Ada.Calendar;
 with Ada.Text_IO;           use Ada.Text_IO;
 with AWS.Client, AWS.Response, AWS.Messages;
 
-with GNAT.Calendar.Time_IO;
 with GNAT.String_Split;
 
--- with GNATCOLL.JSON;
-
--- with MQTT;
+with JSON;
 
 package body Daikin is
-
-    function Time_HHMMSS return String is
-        Pic : constant GNAT.Calendar.Time_IO.Picture_String := "%H:%M:%S";
-    begin
-        return GNAT.Calendar.Time_IO.Image (Ada.Calendar.Clock, Pic);
-    end Time_HHMMSS;
-
-    function Parse_Basic_Info (Buffer : in String) return Basic_Info_T is
-        use GNAT.String_Split;
-        KV_Pairs : Slice_Set;
-        KVs      : Slice_Set;
-        BI       : Basic_Info_T;
-    begin
-        BI.Timestamp := Time_HHMMSS;
-        Create (S => KV_Pairs, From => Buffer, Separators => ",", Mode => Multiple);
-        for Ix in 1 .. Slice_Count (KV_Pairs) loop
-            -- Put_Line ("DEBUG: Parse_Basic_Info examining: " & Slice(KV_Pairs,Ix));
-            Create (S => KVs, From => Slice(KV_Pairs,Ix), Separators => "=", Mode => Multiple);
-            declare
-                Key : constant String := Slice (KVs, 1);
-                Val : constant String := Slice (KVs, 2);
-            begin
-                if    Key = "ver"      then BI.Firmware_Version := +Val;
-                elsif Key = "rev"      then BI.Adaptor_Version := +Val;
-                elsif Key = "pow"      then BI.Powered_On := (Val = "1");
-                elsif Key = "err"      then BI.Error_Code := Integer'Value(Val);
-                elsif Key = "name"     then BI.Name := +Val; -- TODO decode this URL-encoded string
-                elsif Key = "mac"      then BI.Mac_Address := +Val;
-                elsif Key = "adp_kind" then BI.Adaptor_Type := Integer'Value(Val);
-                elsif Key = "led"      then BI.Adaptor_Led := (Val = "1");
-                elsif Key = "en_hol"   then BI.Holiday_Mode := (Val = "1");
-                elsif Key = "en_grp"   then BI.Group_Mode := (Val = "1");
-                elsif Key = "grp_name" then BI.Group_Name := +Val;
-                end if;
-            end;
-        end loop;
-        return BI;
-    end Parse_Basic_Info;
-
-    function Parse_Control_Info (Buffer : in String) return Control_Info_T is
-        -- Decode the Control Information response from an inverter which looks like this:
-        -- ret=OK,pow=1,mode=4,adv=,stemp=19.0,shum=0,dt1=25.0,dt2=M,dt3=25.0,dt4=19.0,dt5=19.0,
-        -- dt7=25.0,dh1=AUTO,dh2=50,dh3=0,dh4=0,dh5=0,dh7=AUTO,dhh=50,b_mode=4,b_stemp=19.0,b_shum=0,
-        -- alert=255,f_rate=A,f_dir=0,b_f_rate=A,b_f_dir=0,dfr1=5,dfr2=5,dfr3=5,dfr4=A,dfr5=A,dfr6=5,
-        -- dfr7=5,dfrh=5,dfd1=0,dfd2=0,dfd3=0,dfd4=0,dfd5=0,dfd6=0,dfd7=0,dfdh=0
-        use GNAT.String_Split;
-        KV_Pairs : Slice_Set;
-        KVs      : Slice_Set;
-        CI       : Control_Info_T;
-    begin
-        CI.Timestamp := Time_HHMMSS;
-        Create (S => KV_Pairs, From => Buffer, Separators => ",", Mode => Single);
-        -- Put_Line ("DEBUG: Parse_Control_Info - No. of K/V pairs:" & Slice_Count (KV_Pairs)'Image);
-        for Ix in 1 .. Slice_Count (KV_Pairs) loop 
-            Create (S => KVs, From => Slice(KV_Pairs,Ix), Separators => "=", Mode =>Single);
-            declare
-                Key : constant String := Slice (KVs, 1);
-                Val : constant String := Slice (KVs, 2);
-            begin
-                -- Put_Line ("DEBUG: Parse_Control_Info - Key: " & Key);
-                -- Put_Line ("DEBUG: Parse_Control_Info - Val: " & Val);
-                if    Key = "ret"   then CI.Ret_OK := (Val = "OK");
-                elsif Key = "pow"   then CI.Power  := (Val = "1");
-                elsif Key = "mode"  then 
-                    CI.Mode   := Natural'Value(Val);
-                elsif Key = "stemp" then 
-                    -- stemp is returned as a float, but is always integral, 2 exceptions...
-                    if Val = "M" or Val = "--" then 
-                        CI.Set_Temp := 0;
-                    else
-                        CI.Set_Temp := Natural(Float'Value(Val));
-                    end if;
-                elsif Key = "shum" then
-                    if Val = "--" then
-                        CI.Set_Humidity := 0;
-                    else
-                        CI.Set_Humidity := Natural(Float'Value(Val));
-                    end if;
-                elsif Key = "f_rate" then 
-                    CI.Fan_Rate  := Val(Val'First);
-                elsif Key = "f_dir"  then 
-                    CI.Fan_Sweep := Natural'Value(Val);
-                -- else
-                --     Put_Line ("DEBUG: Ignoring CI Key: " & Key);
-                end if;
-            end;
-        end loop;
-        return CI;
-    end Parse_Control_Info;
-
-    function Parse_Sensor_Info (Buffer : in String) return Sensor_Info_T is
-        -- Inverter returns: ret=OK,htemp=19.0,hhum=-,otemp=14.0,err=0,cmpfreq=50
-        use GNAT.String_Split;
-        KV_Pairs : Slice_Set;
-        KVs      : Slice_Set;
-        SI       : Sensor_Info_T;
-    begin
-        SI.Timestamp := Time_HHMMSS;
-        Create (S => KV_Pairs, From => Buffer, Separators => ",", Mode => Multiple);
-        for Ix in 1 .. Slice_Count (KV_Pairs) loop
-            -- Put_Line ("DEBUG: Parse_Sensor_Info examining: " & Slice(KV_Pairs,Ix));
-            Create (S => KVs, From => Slice(KV_Pairs,Ix), Separators => "=", Mode => Multiple);
-            declare
-                Key : constant String := Slice (KVs, 1);
-                Val : constant String := Slice (KVs, 2);
-            begin
-                if    Key = "ret"   then SI.Ret_OK := (Val = "OK");
-                elsif Key = "htemp" then SI.Unit_Temp := One_DP'Value(Val);
-                elsif Key = "hhum"  then
-                    if Val = "-" then   
-                        SI.Unit_Humidity := 0;
-                    else
-                        SI.Unit_Humidity := Integer'Value(Val);
-                    end if;
-                elsif Key = "otemp" then
-                    if Val = "-" then 
-                        SI.Ext_Temp := -99.0;
-                    else
-                        SI.Ext_Temp := One_DP'Value(Val);
-                    end if;
-                elsif Key = "err"   then SI.Error_Code := Natural'Value(Val);
-                end if;
-            end;
-        end loop;
-        return SI;
-    end Parse_Sensor_Info;
-
+  
     procedure Fetch_Basic_Info (IP_Addr : in String; BI : out Basic_Info_T; OK : out Boolean) is
         Resp   : AWS.Response.Data;
         Status : AWS.Messages.Status_Code;
@@ -195,6 +65,12 @@ package body Daikin is
         end if;
     end Fetch_Control_Info;
 
+    procedure Fetch_And_Publish_Control_Info (IP_Addr : in String) is
+
+    begin
+NULL;
+    end Fetch_And_Publish_Control_Info;
+
     procedure Fetch_Sensor_Info (IP_Addr : in String; SI : out Sensor_Info_T; OK : out Boolean) is
         Resp   : AWS.Response.Data;
         Status : AWS.Messages.Status_Code;
@@ -215,52 +91,6 @@ package body Daikin is
             end;
         end if;
     end Fetch_Sensor_Info;
-
-    function Bool_To_JSON (ItIs : in Boolean) return String is
-    begin
-        if ItIs then return "true"; else return "false"; end if;
-    end Bool_To_JSON;
-
-    function Fan_Rate_To_String (FR : in Character) return String is
-    begin
-        case FR is
-            when 'A' => return "AUTO";
-            when 'B' => return "SILENT";
-            when '3' => return "LEVEL_1";
-            when '4' => return "LEVEL_2";
-            when '5' => return "LEVEL_3";
-            when '6' => return "LEVEL_4";
-            when '7' => return "LEVEL_5";    
-            when others =>
-                raise Unknown_Fan_Rate with "" & FR;
-        end case;
-    end Fan_Rate_To_String;
-
-    function CI_To_JSON (CI : in Control_Info_T) return String is
-        Tmp_Str : Unbounded_String;
-    begin
-        Tmp_Str := +"{ ""power"": " & Bool_To_JSON (CI.Power);
-        Tmp_Str := Tmp_Str & ", ""mode"": """ & Mode_Arr(CI.Mode) & """";
-        Tmp_Str := Tmp_Str & ", ""set_temp"": "  & CI.Set_Temp'Image;
-        Tmp_Str := Tmp_Str & ", ""Set_humidity"":" & CI.Set_Humidity'Image;
-        Tmp_Str := Tmp_Str & ", ""fan-rate"": """ & Fan_Rate_To_String(CI.Fan_Rate) & """";
-        Tmp_Str := Tmp_Str & ", ""fan-sweep"": """ & Fan_Dir_Arr(CI.Fan_Sweep) & """";
-        Tmp_Str := Tmp_Str & ", ""timestamp"": """ & CI.Timestamp & """";
-        Tmp_Str := Tmp_Str & " }";
-        return To_String (Tmp_Str);
-    end CI_To_JSON;
-
-    function SI_To_JSON (SI : in Sensor_Info_T) return String is
-        Tmp_Str : Unbounded_String;
-    begin
-        Tmp_Str := +"{ ""unit_temp"": " & SI.Unit_Temp'Image;
-        Tmp_Str := Tmp_Str & ", ""unit_humidity"":" & SI.Unit_Humidity'Image;
-        Tmp_Str := Tmp_Str & ", ""ext_temp"": "  & SI.Ext_Temp'Image;
-        Tmp_Str := Tmp_Str & ", ""error"":" & SI.Error_Code'Image;
-        Tmp_Str := Tmp_Str & ", ""timestamp"": """ & SI.Timestamp & """";
-        Tmp_Str := Tmp_Str & " }";
-        return To_String (Tmp_Str);
-    end SI_To_JSON;
 
     task body Monitor_Units is
         Period     : Duration;
@@ -289,14 +119,14 @@ package body Daikin is
                     Fetch_Sensor_Info (IP_Addr => To_String(IP_Addr), SI => SI , OK => OK);
                     if OK then
                         State.Set_Sensor_Info (I_Name, SI);
-                        MQTT_Pub ("/" & To_String(I_Name) & "/sensors", SI_To_JSON (SI));
+                        MQTT_Pub ("/" & To_String(I_Name) & "/sensors", JSON.SI_To_JSON (SI));
                     end if;
                     delay 0.15;
                     Put_Line ("DEBUG: ... Monitor_Units fetching Control Info");
                     Fetch_Control_Info (IP_Addr => To_String(IP_Addr), CI => CI, OK => OK);
                     if OK then
                         State.Set_Control_Info (I_Name, CI);
-                        MQTT_Pub ("/" & To_String(I_Name) & "/controls", CI_To_JSON (CI));
+                        MQTT_Pub ("/" & To_String(I_Name) & "/controls", JSON.CI_To_JSON (CI));
                     end if;
                     Put_Line ("DEBUG: ... Monitor_Units done for this unit");
                 end loop;
@@ -452,28 +282,27 @@ package body Daikin is
     procedure MQTT_Connect (Conf : in Config.MQTT_T) is
     begin
         MQTT_Conf    := Conf;
-
-        Mosq_Handle.Initialize (ID => MQTT_ID, Clean_Sessions => False);
+        Mosq_Handle.Initialize (ID => MQTT_ID, Clean_Sessions => True);
         -- Mosq_Handle.Threaded_Set (True);
         Pump.Start;
         Mosq_Handle.Set_Handler (App'Unchecked_Access);
-
-        Mosq_Handle.Connect (Host => To_String (MQTT_Conf.Broker), Port => MQTT_Conf.Port, Keepalive => Keepalive);
-
-        Mosq_Handle.Subscribe (Topic => To_String (MQTT_Conf.Base_Topic) & "/#");
-
+        Mosq_Handle.Connect (Host => To_String (MQTT_Conf.Broker), 
+                             Port => MQTT_Conf.Port, 
+                             Keepalive => Keepalive);
+        -- Mosq_Handle.UnSubscribe (Topic => "/#");
+        Mosq_Handle.Subscribe (Topic => To_String (MQTT_Conf.Base_Topic) & "/+/get/+");
+        Mosq_Handle.Subscribe (Topic => To_String (MQTT_Conf.Base_Topic) & "/+/set/+");
         Mosq_Handle.Publish (Topic   => To_String (MQTT_Conf.Base_Topic) & "/status", 
                              Payload => "Started", 
                              Qos     => Mosquitto.Qos_1, 
                              Retain  => False);
-
     end MQTT_Connect;
 
     procedure MQTT_Pub (Subtopic, Payload : in String) is
     begin
         Mosq_Handle.Publish (Topic   => To_String (MQTT_Conf.Base_Topic) & Subtopic, 
                              Payload => Payload, 
-                             Qos     => Mosquitto.Qos_0, 
+                             Qos     => Mosquitto.Qos_1, 
                              Retain  => False);
     end MQTT_Pub;
 
@@ -486,23 +315,23 @@ package body Daikin is
                                     Retain  : Boolean) is
         pragma Unreferenced (Self, Mosq, Mid, QoS, Retain);
         use GNAT.String_Split;
-        Subtopics : Slice_Set;
+        Subtopics     : Slice_Set;
         Overlaid_Data : String (Natural (Payload'First) .. Natural (Payload'Last));
         pragma Import (C, Overlaid_Data);
         for Overlaid_Data'Address use Payload'Address;
+        Verbose : constant Boolean := True; -- FIXME
     begin
         if Verbose then
             Put_Line ("DEBUG: MQTT got message in topic: " & Topic & " with payload: " & Overlaid_Data);
         end if;
-        Create (S => Subtopics, From => Topic, Separators => "/", Mode => Multiple);
-        -- Put_Line ("DEBUG: Subtopic: " & Slice (Subtopics, 2));
+        Create (S => Subtopics, From => Topic, Separators => "/");
         if Slice_Count (Subtopics) > 2 then
             if Slice (Subtopics, 3) = "get" then
                 Put_Line ("DEBUG: 'get' request");
             elsif Slice (Subtopics, 3) = "set" then
                 Put_Line ("DEBUG: 'set' request");
-            -- else
-            --     Put_Line ("DEBUG: Ignoring this message");
+            elsif Verbose then
+                Put_Line ("DEBUG: Ignoring this message");
             end if;
         elsif Verbose then
             Put_Line ("DEBUG: Ignoring this message");
@@ -512,9 +341,9 @@ package body Daikin is
     task body Pump_T is
     begin
         accept Start;
-        if Verbose then
-            Put_Line ("DEBUG: MQTT message pump started");
-        end if;
+        -- if Verbose then
+        --     Put_Line ("DEBUG: MQTT message pump started");
+        -- end if;
         Connection.Loop_Forever;
     end Pump_T;
 
