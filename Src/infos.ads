@@ -45,18 +45,8 @@ package Infos is
                                        +"FAN",
                                        +"AUTO 2");
 
-    type Fan_Rate_ID_T is ('A', 'B', '3', '4', '5', '6', '7');
-    type Fan_Rates_Arr_T is array (Fan_Rate_ID_T'Range) of Unbounded_String;
-    Fan_Rate_Arr : constant Fan_Rates_Arr_T := (+"AUTO", 
-                                                +"SILENT", 
-                                                +"LEVEL_1", 
-                                                +"LEVEL_2", 
-                                                +"LEVEL_3", 
-                                                +"LEVEL_4", 
-                                                +"LEVEL_5");
-
-    type Fan_Dir_Arr_T is array (0 .. 3) of Unbounded_String;
-    Fan_Dir_Arr : constant Fan_Dir_Arr_T := (+"OFF", +"VERTICAL", +"HORIZONTAL", +"BOTH");
+    type Fan_Sweep_Arr_T is array (0 .. 3) of Unbounded_String;
+    Fan_Sweep_Arr : constant Fan_Sweep_Arr_T := (+"OFF", +"VERTICAL", +"HORIZONTAL", +"BOTH");
 
     type Control_Info_T is record
         Ret_OK       : Boolean;
@@ -65,7 +55,7 @@ package Infos is
         Set_Temp     : Natural;             
         Set_Humidity : Natural;             
         Fan_Rate     : Character;    
-        Fan_Sweep    : Natural;    
+        Fan_Sweep    : Integer;    
         Timestamp    : String(1..8);  
     end record;
 
@@ -80,8 +70,20 @@ package Infos is
         Timestamp     : String(1..8);
     end record;
 
-    function Parse_Basic_Info (Buffer : in String) return Basic_Info_T;
+    function Parse_Basic_Info   (Buffer : in String) return Basic_Info_T;
     function Parse_Control_Info (Buffer : in String) return Control_Info_T;
-    function Parse_Sensor_Info (Buffer : in String) return Sensor_Info_T;
+    function Parse_Sensor_Info  (Buffer : in String) return Sensor_Info_T;
+
+    function Decode_Mode_US     (Mode : in Unbounded_String) return Integer;
+    function Fan_Sweep_Str_To_Int (Sweep : in String)   return Integer;
+    function Fan_Rate_C_To_US   (Code : in Character) return Unbounded_String;
+    function Fan_Rate_Str_to_C  (Rate : in String)    return Character;
+
+    function Control_Info_To_Cmd (CI : in Control_Info_T) return String;
+
+    Invalid_Fan_Sweep_String,
+    Invalid_Fan_Rate_Character,
+    Invalid_Fan_Rate_String,
+    Invalid_Mode_String : exception;
     
 end Infos;

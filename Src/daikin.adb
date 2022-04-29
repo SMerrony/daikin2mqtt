@@ -17,8 +17,9 @@ with Ada.Text_IO;           use Ada.Text_IO;
 with AWS.Client, AWS.Response, AWS.Messages;
 
 with GNAT.String_Split;
+with GNATCOLL.JSON;
 
-with JSON;
+with Daikin_JSON;  use Daikin_JSON;
 
 package body Daikin is
   
@@ -53,7 +54,7 @@ package body Daikin is
             declare
                 Subtopic : constant String := "/" & State.Get_Name(IP_Addr) & "/basic";
             begin
-                MQTT_Pub (Subtopic, JSON.BI_To_JSON (BI));
+                MQTT_Pub (Subtopic, BI_To_JSON (BI));
             end;
         end if;
     end Fetch_And_Publish_Basic_Info;
@@ -88,10 +89,77 @@ package body Daikin is
             declare
                 Subtopic : constant String := "/" & State.Get_Name(IP_Addr) & "/controls";
             begin
-                MQTT_Pub (Subtopic, JSON.CI_To_JSON (CI));
+                MQTT_Pub (Subtopic, CI_To_JSON (CI));
             end;
         end if;
     end Fetch_And_Publish_Control_Info;
+
+    procedure Send_Control_Info (IP_Addr : in String; JSON_CI : in String) is
+        use GNATCOLL.JSON;
+        User_Fields : JSON_Value :=  Create;
+        New_CI      : Control_Info_T;
+        OK          : Boolean;
+        Resp        : AWS.Response.Data;
+        Status      : AWS.Messages.Status_Code;
+    begin
+        if State.Is_Verbose then
+            Put_Line ("INFO: Send_Control_Info got: " & JSON_CI);
+        end if;
+        User_Fields := Read (JSON_CI);
+        if User_Fields = JSON_Null then
+            Put_Line ("WARNING: 'set' command received with no parameters - ignoring.");
+            return;
+        end if;
+        -- do we have the complete minimal set of controls required from the user?
+        if User_Fields.Has_Field ("power") and 
+           User_Fields.Has_Field ("mode")  and
+           User_Fields.Has_Field ("set_temp")  and
+           User_Fields.Has_Field ("set_humidity")  and
+           User_Fields.Has_Field ("fan_rate")  and
+           User_Fields.Has_Field ("fan_dir") then
+            -- no point fetching the old data
+            New_CI.Power := User_Fields.Get ("power");
+            New_CI.Mode  := Decode_Mode_US (+User_Fields.Get ("mode"));
+            New_CI.Set_Temp := User_Fields.Get ("set_temp");
+            New_CI.Set_Humidity := User_Fields.Get ("set_humidity");
+            New_CI.Fan_Rate := Fan_Rate_Str_to_C (User_Fields.Get ("fan_rate"));
+            New_CI.Fan_Sweep := Fan_Sweep_Str_To_Int (User_Fields.Get ("fan_sweep"));
+        else
+            Fetch_Control_Info (IP_Addr, New_CI, OK);
+            if User_Fields.Has_Field ("power") then
+                New_CI.Power := User_Fields.Get ("power");
+            end if;
+            if User_Fields.Has_Field ("mode") then
+                New_CI.Mode  := Decode_Mode_US (+User_Fields.Get ("mode"));
+            end if;
+            if User_Fields.Has_Field ("set_temp") then
+                New_CI.Set_Temp := User_Fields.Get ("set_temp");
+            end if;
+            if User_Fields.Has_Field ("set_humidity") then
+                New_CI.Set_Humidity := User_Fields.Get ("set_humidity");
+            end if;
+            if User_Fields.Has_Field ("fan_rate") then
+                New_CI.Fan_Rate := Fan_Rate_Str_to_C (User_Fields.Get ("fan_rate"));
+            end if;
+            if User_Fields.Has_Field ("fan_dir") then
+                New_CI.Fan_Sweep := Fan_Sweep_Str_To_Int (User_Fields.Get ("fan_sweep"));
+            end if;
+        end if;
+        if State.Is_Verbose then
+            Put_Line ("INFO: Will send set command: " & "http://" & IP_Addr & Set_Control_Info & Control_Info_To_Cmd (New_CI));
+        end if;
+        Resp   := AWS.Client.Get (URL => "http://" & IP_Addr & Set_Control_Info & Control_Info_To_Cmd (New_CI), Timeouts => AWS.Client.Timeouts(Each => 1.0));
+        Status := AWS.Response.Status_Code (Resp);
+        if Status not in AWS.Messages.Success then
+            Put_Line ("WARNING: set/controls request failed with error: " & Status'Image & 
+                      " from HTTP query: " & "http://" & IP_Addr & Set_Control_Info & Control_Info_To_Cmd (New_CI));
+        end if;
+        delay 0.15;
+        Fetch_And_Publish_Control_Info (IP_Addr);
+    exception
+        when others =>
+            Put_Line("ERROR: Exception caught handling set/controls - ignoring this request.");
+    end Send_Control_Info;
 
     procedure Fetch_Sensor_Info (IP_Addr : in String; SI : out Sensor_Info_T; OK : out Boolean) is
         Resp   : AWS.Response.Data;
@@ -123,7 +191,7 @@ package body Daikin is
             declare
                 Subtopic : constant String := "/" & State.Get_Name(IP_Addr) & "/sensors";
             begin
-                MQTT_Pub (Subtopic, JSON.SI_To_JSON (SI));
+                MQTT_Pub (Subtopic, SI_To_JSON (SI));
             end;
         end if;
     end Fetch_And_Publish_Sensor_Info;
@@ -151,18 +219,18 @@ package body Daikin is
                     Inv_Stat := State.Get_Inverter_Status (I_Name);
 
                     IP_Addr := Inv_Stat.IP_Addr;
-                    Put_Line ("DEBUG: ... Monitor_Units fetching Sensor Info");
+                    -- Put_Line ("DEBUG: ... Monitor_Units fetching Sensor Info");
                     Fetch_Sensor_Info (IP_Addr => To_String(IP_Addr), SI => SI , OK => OK);
                     if OK then
                         State.Set_Sensor_Info (I_Name, SI);
-                        MQTT_Pub ("/" & To_String(I_Name) & "/sensors", JSON.SI_To_JSON (SI));
+                        MQTT_Pub ("/" & To_String(I_Name) & "/sensors", SI_To_JSON (SI));
                     end if;
                     delay 0.15;
-                    Put_Line ("DEBUG: ... Monitor_Units fetching Control Info");
+                    -- Put_Line ("DEBUG: ... Monitor_Units fetching Control Info");
                     Fetch_Control_Info (IP_Addr => To_String(IP_Addr), CI => CI, OK => OK);
                     if OK then
                         State.Set_Control_Info (I_Name, CI);
-                        MQTT_Pub ("/" & To_String(I_Name) & "/controls", JSON.CI_To_JSON (CI));
+                        MQTT_Pub ("/" & To_String(I_Name) & "/controls", CI_To_JSON (CI));
                     end if;
                     Put_Line ("DEBUG: ... Monitor_Units done for this unit");
                 end loop;
@@ -263,7 +331,9 @@ package body Daikin is
                     Online_Count := Online_Count + 1;
                 end if;
             end loop;
-            Put_Line ("DEBUG: Get_Online_Inverters will return" & Online_Count'Image & " inverters");
+            if Verbose then
+                Put_Line ("INFO: Get_Online_Inverters will return" & Online_Count'Image & " inverters");
+            end if;
             declare
                 INA : Inverter_Name_Arr_T (1 .. Online_Count);
                 Ix  : Natural := 0;
@@ -320,6 +390,11 @@ package body Daikin is
 
         function Get_Name (IP_Addr : in String) return String is
             (To_String (Inverters_IP_To_Name(+IP_Addr)));
+
+        function Is_Verbose return Boolean is
+        begin
+            return Verbose;
+        end Is_Verbose;   
 
     end State;
 
@@ -380,9 +455,15 @@ package body Daikin is
                         Fetch_And_Publish_Control_Info (State.Get_IP_Addr(F_Name));
                     elsif Slice (Subtopics, 4) = "sensors" then
                         Fetch_And_Publish_Sensor_Info (State.Get_IP_Addr(F_Name)); 
+                    else
+                        Put_Line ("WARNING: Unknown 'get' request with topic: " & Topic);
                     end if;
                 elsif Slice (Subtopics, 3) = "set" then
-                    Put_Line ("DEBUG: 'set' request");
+                    if Slice (Subtopics, 4) = "controls" then
+                        Send_Control_Info (State.Get_IP_Addr(F_Name), Overlaid_Data);
+                    else
+                        Put_Line ("WARNING: Unknown 'set' request with topic: " & Topic);
+                    end if;
                 elsif Verbose then
                     Put_Line ("DEBUG: Ignoring this message");
                 end if;

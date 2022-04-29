@@ -11,11 +11,11 @@
 -- GNU General Public License for more details.
 --
 -- You should have received a copy of the GNU General Public License
--- along with Daikin2MQTT.  If not, see <https://www.gnu.org/licenses/>.
+-- along with Daikin2MQTT.  If not, see <https://www.gnu.org/licenses/>. 
 
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with Ada.Strings.Unbounded;         use Ada.Strings.Unbounded;
 
-package body JSON is
+package body Daikin_JSON is
 
     function Bool_To_JSON (ItIs : in Boolean) return String is
     begin
@@ -60,7 +60,7 @@ package body JSON is
         Tmp_Str := Tmp_Str & ", ""set_temp"": "    & CI.Set_Temp'Image;
         Tmp_Str := Tmp_Str & ", ""Set_humidity"":" & CI.Set_Humidity'Image;
         Tmp_Str := Tmp_Str & ", ""fan-rate"": """  & Fan_Rate_To_String(CI.Fan_Rate) & """";
-        Tmp_Str := Tmp_Str & ", ""fan-sweep"": """ & Fan_Dir_Arr(CI.Fan_Sweep) & """";
+        Tmp_Str := Tmp_Str & ", ""fan-sweep"": """ & Fan_Sweep_Arr(CI.Fan_Sweep) & """";
         Tmp_Str := Tmp_Str & ", ""timestamp"": """ & CI.Timestamp & """";
         Tmp_Str := Tmp_Str & " }";
         return To_String (Tmp_Str);
@@ -77,4 +77,5 @@ package body JSON is
         Tmp_Str := Tmp_Str & " }";
         return To_String (Tmp_Str);
     end SI_To_JSON;
-end JSON;
+
+end Daikin_JSON;

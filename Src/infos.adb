@@ -14,6 +14,8 @@
 -- along with Daikin2MQTT.  If not, see <https://www.gnu.org/licenses/>.
 
 with Ada.Calendar;
+with Ada.Strings;       use Ada.Strings;
+with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 -- with Ada.Text_IO;           use Ada.Text_IO;
 
 with GNAT.Calendar.Time_IO;
@@ -147,5 +149,82 @@ package body Infos is
         return SI;
     end Parse_Sensor_Info;
 
+    function Decode_Mode_US (Mode : in Unbounded_String) return Integer is
+        Mode_Num : Integer := 999;
+    begin
+        for Ix in Mode_Arr_T'First .. Mode_Arr_T'Last loop
+            if Mode_Arr(Ix) = Mode then
+                Mode_Num := Ix;
+                exit;
+            end if;
+        end loop;
+        if Mode_Num = 999 then
+            raise Invalid_Mode_String with To_String (Mode);
+        end if;
+        return Mode_Num;
+    end Decode_Mode_US;
+
+    function Fan_Sweep_Str_To_Int (Sweep : in String) return Integer is
+        Sweep_Num : Integer := 999;
+    begin
+        for Ix in Fan_Sweep_Arr_T'First .. Fan_Sweep_Arr_T'Last loop
+            if Fan_Sweep_Arr(Ix) = +Sweep then
+                Sweep_Num := Ix;
+                exit;
+            end if;
+        end loop;
+        if Sweep_Num = 999 then
+            raise Invalid_Fan_Sweep_String with Sweep;
+        end if;
+        return Sweep_Num;
+    end Fan_Sweep_Str_To_Int;
+
+
+    function Fan_Rate_C_To_US (Code : in Character) return Unbounded_String is
+    begin
+        case Code is
+            when 'A' => return +"AUTO";
+            when 'B' => return +"SILENT";
+            when '3' => return +"LEVEL_1";
+            when '4' => return +"LEVEL_2";
+            when '5' => return +"LEVEL_3";
+            when '6' => return +"LEVEL_4";
+            when '7' => return +"LEVEL_5";
+            when others =>
+                raise Invalid_Fan_Rate_Character with "" & Code;
+        end case;
+    end Fan_Rate_C_To_US;
+
+    function Fan_Rate_Str_to_C (Rate : in String) return Character is
+    begin
+        if    Rate = "AUTO"    then return 'A';
+        elsif Rate = "SILENT"  then return 'B';
+        elsif Rate = "LEVEL_1" then return '3';
+        elsif Rate = "LEVEL_2" then return '4';
+        elsif Rate = "LEVEL_3" then return '5';
+        elsif Rate = "LEVEL_4" then return '6';
+        elsif Rate = "LEVEL_5" then return '7';
+        else
+            raise Invalid_Fan_Rate_String with Rate;
+        end if;
+    end Fan_Rate_Str_to_C;
+
+    function Control_Info_To_Cmd (CI : in Control_Info_T) return String is
+        -- result must look like this C sprintf description: "?pow=%s&mode=%s&stemp=%s&f_rate=%s&f_dir=%s&shum=%s"
+        Cmd : Unbounded_String;
+    begin
+        Cmd := +"?pow=";
+        if CI.Power then 
+            Append (Cmd, "1"); 
+        else 
+            Append (Cmd, '0'); 
+        end if;
+        Cmd := Cmd & "&mode="   & Trim(CI.Mode'Image, Both);
+        Cmd := Cmd & "&stemp="  & Trim(CI.Set_Temp'Image, Both);
+        Cmd := Cmd & "&shum="   & Trim(CI.Set_Humidity'Image, Both);
+        Cmd := Cmd & "&f_rate=" & CI.Fan_Rate;
+        Cmd := Cmd & "&f_dir="  & Trim(CI.Fan_Sweep'Image, Both);
+        return To_String (Cmd);
+    end Control_Info_To_Cmd;
 
 end Infos;

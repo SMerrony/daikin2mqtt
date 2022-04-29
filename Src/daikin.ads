@@ -83,6 +83,8 @@ package Daikin is
         function Get_IP_Addr (F_Name : in String) return String;
         function Get_Name (IP_Addr : in String) return String;
 
+        function Is_Verbose return Boolean;
+
     private
 
         Daikin_Conf          : Config.Daikin_T;

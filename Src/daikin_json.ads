@@ -13,9 +13,11 @@
 -- You should have received a copy of the GNU General Public License
 -- along with Daikin2MQTT.  If not, see <https://www.gnu.org/licenses/>.
 
+-- with Ada.Containers.Ordered_Maps;
+
 with Infos;     use Infos;
 
-package JSON is
+package Daikin_JSON is
 
     function Bool_To_JSON (ItIs : in Boolean) return String;
     function Fan_Rate_To_String (FR : in Character) return String;
@@ -27,4 +29,4 @@ package JSON is
     Unknown_Fan_Rate,
     Unknown_Inverter_Name : exception;
 
-end JSON;
+end Daikin_JSON;
