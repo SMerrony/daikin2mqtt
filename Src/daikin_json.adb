@@ -59,8 +59,8 @@ package body Daikin_JSON is
         Tmp_Str := Tmp_Str & ", ""mode"": """      & Mode_Arr(CI.Mode) & """";
         Tmp_Str := Tmp_Str & ", ""set_temp"": "    & CI.Set_Temp'Image;
         Tmp_Str := Tmp_Str & ", ""Set_humidity"":" & CI.Set_Humidity'Image;
-        Tmp_Str := Tmp_Str & ", ""fan-rate"": """  & Fan_Rate_To_String(CI.Fan_Rate) & """";
-        Tmp_Str := Tmp_Str & ", ""fan-sweep"": """ & Fan_Sweep_Arr(CI.Fan_Sweep) & """";
+        Tmp_Str := Tmp_Str & ", ""fan_rate"": """  & Fan_Rate_To_String(CI.Fan_Rate) & """";
+        Tmp_Str := Tmp_Str & ", ""fan_sweep"": """ & Fan_Sweep_Arr(CI.Fan_Sweep) & """";
         Tmp_Str := Tmp_Str & ", ""timestamp"": """ & CI.Timestamp & """";
         Tmp_Str := Tmp_Str & " }";
         return To_String (Tmp_Str);

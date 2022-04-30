@@ -18,6 +18,7 @@ with Ada.Strings;       use Ada.Strings;
 with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 -- with Ada.Text_IO;           use Ada.Text_IO;
 
+with Ada.Text_IO;
 with GNAT.Calendar.Time_IO;
 with GNAT.String_Split;
 
@@ -152,7 +153,9 @@ package body Infos is
     function Decode_Mode_US (Mode : in Unbounded_String) return Integer is
         Mode_Num : Integer := 999;
     begin
+        Ada.Text_IO.Put_Line     ("DEBUG: Decode_Mode_US got: " & To_String(Mode));
         for Ix in Mode_Arr_T'First .. Mode_Arr_T'Last loop
+            Ada.Text_IO.Put_Line ("DEBUG:     Comparing with: " &  To_String(Mode_Arr(Ix)));
             if Mode_Arr(Ix) = Mode then
                 Mode_Num := Ix;
                 exit;

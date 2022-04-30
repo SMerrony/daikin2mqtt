@@ -116,7 +116,7 @@ package body Daikin is
            User_Fields.Has_Field ("set_temp")  and
            User_Fields.Has_Field ("set_humidity")  and
            User_Fields.Has_Field ("fan_rate")  and
-           User_Fields.Has_Field ("fan_dir") then
+           User_Fields.Has_Field ("fan_sweep") then
             -- no point fetching the old data
             New_CI.Power := User_Fields.Get ("power");
             New_CI.Mode  := Decode_Mode_US (+User_Fields.Get ("mode"));
@@ -133,11 +133,19 @@ package body Daikin is
             if User_Fields.Has_Field ("power") then
                 New_CI.Power := User_Fields.Get ("power");
             end if;
-            if User_Fields.Has_Field ("mode") then
-                New_CI.Mode  := Decode_Mode_US (+User_Fields.Get ("mode"));
-            end if;
             if User_Fields.Has_Field ("set_temp") then
                 New_CI.Set_Temp := User_Fields.Get ("set_temp");
+            end if;
+            if User_Fields.Has_Field ("mode") then
+                New_CI.Mode  := Decode_Mode_US (+User_Fields.Get ("mode"));
+                case New_CI.Mode is
+                    when 0 | 1 | 4 | 7 =>
+                        if New_CI.Set_Temp = 0 then
+                            -- the user has set to heat, but not yet set the temperature - default to 20C
+                            New_CI.Set_Temp := 20;
+                        end if;
+                    when others => null;    
+                end case;
             end if;
             if User_Fields.Has_Field ("set_humidity") then
                 New_CI.Set_Humidity := User_Fields.Get ("set_humidity");
@@ -145,14 +153,15 @@ package body Daikin is
             if User_Fields.Has_Field ("fan_rate") then
                 New_CI.Fan_Rate := Fan_Rate_Str_to_C (User_Fields.Get ("fan_rate"));
             end if;
-            if User_Fields.Has_Field ("fan_dir") then
+            if User_Fields.Has_Field ("fan_sweep") then
                 New_CI.Fan_Sweep := Fan_Sweep_Str_To_Int (User_Fields.Get ("fan_sweep"));
             end if;
         end if;
+        delay 0.15;
         if State.Is_Verbose then
             Put_Line ("INFO: Will send set command: " & "http://" & IP_Addr & Set_Control_Info & Control_Info_To_Cmd (New_CI));
         end if;
-        Resp   := AWS.Client.Get (URL => "http://" & IP_Addr & Set_Control_Info & Control_Info_To_Cmd (New_CI), Timeouts => AWS.Client.Timeouts(Each => 1.0));
+        Resp   := AWS.Client.Get (URL => "http://" & IP_Addr & Set_Control_Info & Control_Info_To_Cmd (New_CI), Timeouts => AWS.Client.Timeouts(Each => 2.0));
         Status := AWS.Response.Status_Code (Resp);
         if Status not in AWS.Messages.Success then
             Put_Line ("WARNING: set/controls request failed with error: " & Status'Image & 
@@ -257,6 +266,7 @@ package body Daikin is
             BI              : Basic_Info_T;
             OK              : Boolean;
         begin
+            State.Verbose := Verbose;
             Daikin_Conf := Conf;
             for Ix in 1 .. Config.Inverter_Count loop
                 I := Inv_Conf(Ix);

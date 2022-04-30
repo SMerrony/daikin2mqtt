@@ -28,10 +28,11 @@ package Daikin is
 
     function "+"(S : String) return Unbounded_String renames Ada.Strings.Unbounded.To_Unbounded_String;
 
-    -- these are all the known Daikin 'end-points', we do not use them all
+    -- these are some of the known Daikin 'end-points', we do not use them all
 	Get_Basic_Info     : constant String := "/common/basic_info";
 	Get_Remote_Method  : constant String := "/common/get_remote_method";
 	Set_Region_Code    : constant String := "/common/set_regioncode";
+    Reboot             : constant String := "/common/reboot";
 	Get_Model_Info     : constant String := "/aircon/get_model_info";
 	Get_Control_Info   : constant String := "/aircon/get_control_info";
 	Get_Sched_Timer    : constant String := "/aircon/get_scdtimer";
