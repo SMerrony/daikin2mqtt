@@ -126,6 +126,10 @@ package body Daikin is
             New_CI.Fan_Sweep := Fan_Sweep_Str_To_Int (User_Fields.Get ("fan_sweep"));
         else
             Fetch_Control_Info (IP_Addr, New_CI, OK);
+            if not OK then
+                Put_Line ("WARNING: Unable to handle set/controls request. Could not fetch Control Info for " & IP_Addr);
+                return;
+            end if;
             if User_Fields.Has_Field ("power") then
                 New_CI.Power := User_Fields.Get ("power");
             end if;
@@ -217,16 +221,15 @@ package body Daikin is
                 for I_Name of Inv_Arr loop
                     Put_Line ("DEBUG: Monitor_Units fetching status of: " & To_String (I_Name));
                     Inv_Stat := State.Get_Inverter_Status (I_Name);
-
-                    IP_Addr := Inv_Stat.IP_Addr;
-                    -- Put_Line ("DEBUG: ... Monitor_Units fetching Sensor Info");
+                    IP_Addr  := Inv_Stat.IP_Addr;
+                    Put_Line ("DEBUG: ... Monitor_Units fetching Sensor Info");
                     Fetch_Sensor_Info (IP_Addr => To_String(IP_Addr), SI => SI , OK => OK);
                     if OK then
                         State.Set_Sensor_Info (I_Name, SI);
                         MQTT_Pub ("/" & To_String(I_Name) & "/sensors", SI_To_JSON (SI));
                     end if;
                     delay 0.15;
-                    -- Put_Line ("DEBUG: ... Monitor_Units fetching Control Info");
+                    Put_Line ("DEBUG: ... Monitor_Units fetching Control Info");
                     Fetch_Control_Info (IP_Addr => To_String(IP_Addr), CI => CI, OK => OK);
                     if OK then
                         State.Set_Control_Info (I_Name, CI);
@@ -235,14 +238,12 @@ package body Daikin is
                     Put_Line ("DEBUG: ... Monitor_Units done for this unit");
                 end loop;
             end;
-
             select
                 delay Period;
             or
                 accept Stop;
                     Monitoring := False;
             end select;     
-
         end loop;
         Put_Line ("INFO: Monitor_Units task has exited");
     end Monitor_Units;
@@ -253,6 +254,7 @@ package body Daikin is
             Inverter_Status : Inverter_Status_T;
             I               : Config.Inverter_T;
             IC              : Status_Maps.Cursor;
+            BI              : Basic_Info_T;
             OK              : Boolean;
         begin
             Daikin_Conf := Conf;
@@ -261,14 +263,12 @@ package body Daikin is
                 if Status_Maps.Contains (Inverter_Statuses, I.Friendly_Name) then
                     raise Config.Duplicate_Configuration with "configured multiple times: " & To_String (I.Friendly_Name);
                 end if;
-                Inverter_Status.Use_IP_Addr := I.Use_IP_Addr;
-                Inverter_Status.MAC_Addr    := I.MAC_Addr;
                 Inverter_Status.IP_Addr     := I.IP_Addr;
                 Inverter_Status.Configured  := True;
                 Inverter_Status.Detected    := False;
                 Inverter_Status.Online      := False;
-                Status_Maps.Insert (Container => Inverter_Statuses, 
-                                      Key => I.Friendly_Name, 
+                Status_Maps.Insert (Container  => Inverter_Statuses, 
+                                      Key      => I.Friendly_Name, 
                                       New_Item => Inverter_Status, 
                                       Position => IC, 
                                       Inserted => OK);
@@ -277,40 +277,24 @@ package body Daikin is
                 elsif Verbose then
                     Put_Line ("DEBUG: Configured inverter: " & To_String(I.Friendly_Name));
                 end if;
+
+                if Verbose then
+                    Put_Line ("INFO: Checking inverter: " & To_String (I.Friendly_Name));
+                end if;
+                Fetch_Basic_Info (IP_Addr => To_String (I.IP_Addr), 
+                                  BI => BI, 
+                                  OK => OK);
+                if not OK then
+                    Put_Line ("WARNING: Failed to detect " & To_String (I.Friendly_Name) & 
+                                " - Will assume it's out there!");
+                else
+                    Inverter_Status.Basic_Info := BI;
+                end if;
+                Set_Inverter_Online (I.Friendly_Name, True);
+                Inverters_IP_To_Name.Include (I.IP_Addr, I.Friendly_Name); 
             end loop;
             Put_Line ("INFO:" & Status_Maps.Length (Inverter_Statuses)'Image & " Inverters configured");
         end Init;
-
-        procedure Discover_UDP is
-        begin
-            if Config.Inverters_MAC = 0 then
-                return;
-            end if;
-
-        end Discover_UDP;
-
-        procedure Discover_IP is
-            BI : Basic_Info_T;
-            OK : Boolean;
-        begin
-            if Config.Inverters_IP = 0 then
-                return;
-            end if;
-
-            for I in Inverter_Statuses.Iterate loop
-                if Status_Maps.Element (I).Use_IP_Addr then
-                    Put_Line ("DEBUG: Would check inverter: " & To_String (Status_Maps.Key (I)));
-                    Fetch_Basic_Info (IP_Addr => To_String (Status_Maps.Element(I).IP_Addr), 
-                                      BI => BI, 
-                                      OK => OK);
-                    if OK then
-                        Set_Inverter_Online (Status_Maps.Key (I), True);
-                        Inverters_IP_To_Name.Include (Status_Maps.Element(I).IP_Addr, Status_Maps.Key (I)); 
-                    end if;
-                end if;
-            end loop;
-
-        end Discover_IP;
 
         function Get_Inverter_Status (F_Name : in Unbounded_String) return Inverter_Status_T is
             Inv : Inverter_Status_T;
@@ -358,6 +342,15 @@ package body Daikin is
                 Control_Maps.Insert (Container => Inverter_Controls, 
                                      Key       => F_Name, 
                                      New_Item  => CI);
+            end if;
+        end Set_Control_Info;
+
+        procedure Set_Control_Info (IP_Addr : in String; CI : in Control_Info_T) is
+        begin
+            if Inverter_Xrefs.Contains (Inverters_IP_To_Name, +IP_Addr) then
+                Set_Control_Info (Inverters_IP_To_Name(+IP_Addr), CI);
+            else
+                raise Unknown_IP_Address with IP_Addr;
             end if;
         end Set_Control_Info;
 
@@ -444,7 +437,7 @@ package body Daikin is
             Put_Line ("DEBUG: MQTT got message in topic: " & Topic & " with payload: " & Overlaid_Data);
         end if;
         Create (S => Subtopics, From => Topic, Separators => "/");
-        if Slice_Count (Subtopics) > 2 then
+        if Slice_Count (Subtopics) = 4 then
             declare
                 F_Name : constant String := Slice (Subtopics, 2);
             begin

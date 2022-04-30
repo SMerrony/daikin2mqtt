@@ -46,8 +46,6 @@ package Daikin is
         -- This is the 'current' status, not the preconfigured basic_info.
         -- TODO this should be extended once the original functionality is done.
         -- Friendly_Name : Unbounded_String;
-        Use_IP_Addr   : Boolean;
-        MAC_Addr      : Unbounded_String;
         IP_Addr       : Unbounded_String;
         Configured,
         Detected,
@@ -68,14 +66,14 @@ package Daikin is
     protected State is
 
         procedure Init (Conf : in Config.Daikin_T; Inv_Conf : in Config.Inverters_T; Verbose : in Boolean);
-        procedure Discover_IP;
-        procedure Discover_UDP;
+
         function  Get_Inverter_Status (F_Name : in Unbounded_String) return Inverter_Status_T;
         function  Get_Online_Inverters return Inverter_Name_Arr_T;
         procedure Set_Inverter_Online (F_Name : in Unbounded_String; Online : in Boolean);
 
         procedure Set_Control_Info (F_Name : in Unbounded_String; CI : in Control_Info_T);
         -- Either create a new CI record, or replace an existing one.
+        procedure Set_Control_Info (IP_Addr : in String; CI : in Control_Info_T);
 
         procedure Set_Sensor_Info (F_Name : in Unbounded_String; SI : in Sensor_Info_T);
         -- Either create a new SI record, or replace an existing one.
@@ -134,6 +132,7 @@ package Daikin is
     Pump        : Pump_T (Mosq_Handle'Access);
 
     Unknown_Fan_Rate,
-    Unknown_Inverter_Name : exception;
+    Unknown_Inverter_Name,
+    Unknown_IP_Address     : exception;
 
 end Daikin;

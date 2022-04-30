@@ -70,9 +70,6 @@ begin
 
     Daikin.State.Init (Conf => Config.Daikin, Inv_Conf => Config.Inverters, Verbose => Verbose);
 
-    Daikin.State.Discover_IP;
-
     Daikin.Monitor_Units.Start (Period_S => Config.Daikin.Update_Period_S);
-
 
 end Daikin2MQTT;

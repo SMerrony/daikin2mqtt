@@ -18,8 +18,6 @@ with Ada.Strings.Unbounded;   use Ada.Strings.Unbounded;
 package Config is
 
     type Daikin_T is record
-        Discovery_Timeout_S  : Positive;
-        Rediscovery_Period_M : Positive;
         Update_Period_S      : Duration;
     end record;
 
@@ -41,14 +39,12 @@ package Config is
 
     type Inverter_T is record
         Friendly_Name : Unbounded_String;
-        Use_IP_Addr   : Boolean;
-        MAC_Addr      : Unbounded_String;
         IP_Addr       : Unbounded_String;
     end record;
 
     Max_Inverters : constant Positive := 24;
     -- This value is somewhat arbitrary, it's mainly set this low to ensure that
-    -- the config parsing doesn't go into a loop.
+    -- the config parsing doesn't go into a crazy loop.
 
     type Inverters_T is array (1 .. Max_Inverters) of Inverter_T;
 
@@ -58,9 +54,6 @@ package Config is
     Inverter_Count : Natural := 0;
     -- The number of inverters that are configured,
     -- i.e. present in the configuration file.
-
-    Inverters_MAC, 
-    Inverters_IP    : Natural := 0;
 
     procedure Load_Config_File (Filename : in String; Verbose : in Boolean);
 

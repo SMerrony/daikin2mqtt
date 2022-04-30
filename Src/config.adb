@@ -41,13 +41,9 @@ package body Config is
                     declare
                         Daikin_Table : constant TOML.TOML_Value := TOML.Get (Toml_Parse_Result.Value, "daikin");
                     begin
-                        Daikin.Discovery_Timeout_S   := Positive(TOML.As_Integer (TOML.Get (Daikin_Table, "discovery_timeout")));
-                        Daikin.Rediscovery_Period_M  := Positive(TOML.As_Integer (TOML.Get (Daikin_Table, "rediscovery_minutes")));
                         Daikin.Update_Period_S       := Duration(TOML.As_Integer (TOML.Get (Daikin_Table, "update_period")));
                         if Verbose then
-                            Put_Line ("  Discovery_Timeout_S  :" & Daikin.Discovery_Timeout_S'Image);
-                            Put_Line ("  Rediscovery_Period_M :" & Daikin.Rediscovery_Period_M'Image);
-                            Put_Line ("  Update_Period_S      :" & Daikin.Update_Period_S'Image);
+                            Put_Line ("INFO: Update_Period (s) :" & Daikin.Update_Period_S'Image);
                         end if;
                     end;
 
@@ -80,15 +76,7 @@ package body Config is
                         for I in 1 .. Invs loop
                             Inv := TOML.Item (Inverter_Array, I);
                             Inverters(I).Friendly_Name := TOML.As_Unbounded_String (TOML.Get (Inv, "friendly_name"));
-                            if TOML.Has (Inv, "ip_addr") then
-                                Inverters(I).Use_IP_Addr := True;
-                                Inverters(I).IP_Addr     := TOML.As_Unbounded_String (TOML.Get (Inv, "ip_addr"));
-                                Inverters_IP := Inverters_IP + 1;
-                            else
-                                Inverters(I).Use_IP_Addr := False;
-                                Inverters(I).MAC_Addr     := TOML.As_Unbounded_String (TOML.Get (Inv, "mac"));
-                                Inverters_MAC := Inverters_MAC + 1;
-                            end if;
+                            Inverters(I).IP_Addr       := TOML.As_Unbounded_String (TOML.Get (Inv, "ip_addr"));
                         end loop;
 
                         Inverter_Count := Invs;
@@ -97,11 +85,7 @@ package body Config is
                             Put_Line ("  Inverters configured :" & Invs'Image);
                             for I in 1 .. Invs loop
                                 Put_Line ("    " & To_String (Inverters(I).Friendly_Name));
-                                if Inverters(I).Use_IP_Addr then
-                                    Put_Line ("      " & To_String (Inverters(I).IP_Addr));
-                                else
-                                    Put_Line ("      " & To_String (Inverters(I).MAC_Addr));
-                                end if;
+                                Put_Line ("      " & To_String (Inverters(I).IP_Addr));
                             end loop;
                         end if;
                     end;
