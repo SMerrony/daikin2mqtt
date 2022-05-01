@@ -13,6 +13,8 @@
 -- You should have received a copy of the GNU General Public License
 -- along with Daikin2MQTT.  If not, see <https://www.gnu.org/licenses/>.
 
+with Ada.Calendar;
+with Ada.Calendar.Formatting;
 with Ada.Text_IO;           use Ada.Text_IO;
 with AWS.Client, AWS.Response, AWS.Messages;
 
@@ -23,6 +25,16 @@ with Daikin_JSON;  use Daikin_JSON;
 
 package body Daikin is
   
+    procedure Warning (Message : String) is
+    begin
+        Put_Line (Ada.Calendar.Formatting.Image (Ada.Calendar.Clock) & " WARNING: " & Message);
+    end Warning;
+
+    procedure Error (Message : String) is
+    begin
+        Put_Line (Ada.Calendar.Formatting.Image (Ada.Calendar.Clock) & " ERROR: " & Message);
+    end Error;
+
     procedure Fetch_Basic_Info (IP_Addr : String; BI : out Basic_Info_T; OK : out Boolean) is
         Resp   : AWS.Response.Data;
         Status : AWS.Messages.Status_Code;
@@ -32,7 +44,7 @@ package body Daikin is
         Resp   := AWS.Client.Get (URL => Query, Timeouts => AWS.Client.Timeouts(Each => 1.0));
         Status := AWS.Response.Status_Code (Resp);
         if Status not in AWS.Messages.Success then
-            Put_Line ("WARNING: Basic Information request failed with error: " & Status'Image & 
+            Warning ("Basic Information request failed with error: " & Status'Image & 
                       " from HTTP query: " & Query);
             OK := False;
         else
@@ -67,7 +79,7 @@ package body Daikin is
         Resp   := AWS.Client.Get (URL => Query, Timeouts => AWS.Client.Timeouts(Each => 1.0));
         Status := AWS.Response.Status_Code (Resp);
         if Status not in AWS.Messages.Success then
-            Put_Line ("WARNING: Control Information request failed with error: " & Status'Image & 
+            Warning ("Control Information request failed with error: " & Status'Image & 
                       " from HTTP query: " & Query);
             OK := False;
         else
@@ -106,7 +118,7 @@ package body Daikin is
         end if;
         User_Fields := Read (JSON_CI);
         if User_Fields = JSON_Null then
-            Put_Line ("WARNING: 'set' command received with no parameters - ignoring.");
+            Warning ("'set' command received with no parameters - ignoring.");
             return;
         end if;
         -- do we have the complete minimal set of controls required from the user?
@@ -126,7 +138,7 @@ package body Daikin is
         else
             Fetch_Control_Info (IP_Addr, New_CI, OK);
             if not OK then
-                Put_Line ("WARNING: Unable to handle set/controls request. Could not fetch Control Info for " & IP_Addr);
+                Warning ("Unable to handle set/controls request. Could not fetch Control Info for " & IP_Addr);
                 return;
             end if;
             if User_Fields.Has_Field ("power") then
@@ -163,14 +175,14 @@ package body Daikin is
         Resp   := AWS.Client.Get (URL => "http://" & IP_Addr & Set_Control_Info & Control_Info_To_Cmd (New_CI), Timeouts => AWS.Client.Timeouts(Each => 2.0));
         Status := AWS.Response.Status_Code (Resp);
         if Status not in AWS.Messages.Success then
-            Put_Line ("WARNING: set/controls request failed with error: " & Status'Image & 
+            Warning ("set/controls request failed with error: " & Status'Image & 
                       " from HTTP query: " & "http://" & IP_Addr & Set_Control_Info & Control_Info_To_Cmd (New_CI));
         end if;
         delay 0.15;
         Fetch_And_Publish_Control_Info (IP_Addr);
     exception
         when others =>
-            Put_Line("ERROR: Exception caught handling set/controls - ignoring this request.");
+            Error ("Exception caught handling set/controls - ignoring this request.");
     end Send_Control_Info;
 
     procedure Fetch_Sensor_Info (IP_Addr : String; SI : out Sensor_Info_T; OK : out Boolean) is
@@ -182,7 +194,7 @@ package body Daikin is
         Resp   := AWS.Client.Get (URL => Query, Timeouts => AWS.Client.Timeouts(Each => 1.0));
         Status := AWS.Response.Status_Code (Resp);
         if Status not in AWS.Messages.Success then
-            Put_Line ("WARNING: Sensor Information request failed with error: " & Status'Image &  
+            Warning ("Sensor Information request failed with error: " & Status'Image &  
                       " from HTTP query: " & Query);
             OK := False;
         else
@@ -289,7 +301,7 @@ package body Daikin is
                                       Position => IC, 
                                       Inserted => OK);
                 if not OK then
-                    Put_Line ("ERROR: Could not configure inverter: " & To_String(I.Friendly_Name));
+                    Error ("Could not configure inverter: " & To_String(I.Friendly_Name));
                 elsif Verbose then
                     Put_Line ("DEBUG: Configured inverter: " & To_String(I.Friendly_Name));
                 end if;
@@ -301,7 +313,7 @@ package body Daikin is
                                   BI => BI, 
                                   OK => OK);
                 if not OK then
-                    Put_Line ("WARNING: Failed to detect " & To_String (I.Friendly_Name) & 
+                    Warning ("Failed to detect " & To_String (I.Friendly_Name) & 
                                 " - Will assume it's out there!");
                 else
                     Inverter_Status.Basic_Info := BI;
@@ -461,13 +473,13 @@ package body Daikin is
                     elsif Slice (Subtopics, 4) = "sensors" then
                         Fetch_And_Publish_Sensor_Info (State.Name_To_IP_Addr(F_Name)); 
                     else
-                        Put_Line ("WARNING: Unknown 'get' request with topic: " & Topic);
+                        Warning ("Unknown 'get' request with topic: " & Topic);
                     end if;
                 elsif Slice (Subtopics, 3) = "set" then
                     if Slice (Subtopics, 4) = "controls" then
                         Send_Control_Info (State.Name_To_IP_Addr(F_Name), Overlaid_Data);
                     else
-                        Put_Line ("WARNING: Unknown 'set' request with topic: " & Topic);
+                        Warning ("Unknown 'set' request with topic: " & Topic);
                     end if;
                 elsif Verbose then
                     Put_Line ("DEBUG: Ignoring this message");
@@ -486,7 +498,7 @@ package body Daikin is
         -- The Timeout value below seems to directly influence the 'idle' CPU
         -- usage of the message pump...
         Connection.Loop_Forever (Timeout => 10.0);
-        Put_Line ("ERROR: MQTT loop has exited - this should not happen.");
+        Error ("MQTT loop has exited - this should not happen.");
     end Pump_T;
 
 end Daikin;
