@@ -17,12 +17,12 @@ with Ada.Strings.Unbounded;         use Ada.Strings.Unbounded;
 
 package body Daikin_JSON is
 
-    function Bool_To_JSON (ItIs : in Boolean) return String is
+    function Bool_To_JSON (ItIs : Boolean) return String is
     begin
         if ItIs then return "true"; else return "false"; end if;
     end Bool_To_JSON;
 
-    function Fan_Rate_To_String (FR : in Character) return String is
+    function Fan_Rate_To_String (FR : Character) return String is
     begin
         case FR is
             when 'A' => return "AUTO";
@@ -37,7 +37,7 @@ package body Daikin_JSON is
         end case;
     end Fan_Rate_To_String;
 
-    function BI_To_JSON (BI : in Basic_Info_T) return String is
+    function BI_To_JSON (BI : Basic_Info_T) return String is
         Tmp_Str : Unbounded_String;
     begin
         Tmp_Str := +"{ ""firmware_version"": """    & BI.Firmware_Version & """";
@@ -52,7 +52,7 @@ package body Daikin_JSON is
         return To_String (Tmp_Str);
     end BI_To_JSON;
 
-    function CI_To_JSON (CI : in Control_Info_T) return String is
+    function CI_To_JSON (CI : Control_Info_T) return String is
         Tmp_Str : Unbounded_String;
     begin
         Tmp_Str := +"{ ""power"": "                & Bool_To_JSON (CI.Power);
@@ -66,7 +66,7 @@ package body Daikin_JSON is
         return To_String (Tmp_Str);
     end CI_To_JSON;
 
-    function SI_To_JSON (SI : in Sensor_Info_T) return String is
+    function SI_To_JSON (SI : Sensor_Info_T) return String is
         Tmp_Str : Unbounded_String;
     begin
         Tmp_Str := +"{ ""unit_temp"": "             & SI.Unit_Temp'Image;

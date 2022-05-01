@@ -55,7 +55,7 @@ package Config is
     -- The number of inverters that are configured,
     -- i.e. present in the configuration file.
 
-    procedure Load_Config_File (Filename : in String; Verbose : in Boolean);
+    procedure Load_Config_File (Filename : String; Verbose : Boolean);
 
     Could_Not_Parse,
     Duplicate_Configuration,

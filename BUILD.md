@@ -1,5 +1,8 @@
 # Building daikin2mqtt
 
+## For Production Use...
+`gprbuild -Xmode=release`
+
 ## Prerequisites
 * `ada-toml` from https://github.com/pmderodat/ada-toml
 * MQTT-related...

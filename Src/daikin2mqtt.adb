@@ -35,12 +35,12 @@ procedure Daikin2MQTT is
 begin
 
     while Arg_Ix <= Argument_Count loop
-        if Argument (Arg_Ix) = "-V" or Argument (Arg_Ix) = "-version" then
+        if Argument (Arg_Ix) = "-V" or else Argument (Arg_Ix) = "-version" then
             Ada.Text_IO.Put_Line ("daikin2mqtt version " & App_SemVer);
             return;
-        elsif Argument (Arg_Ix) = "-v" or Argument (Arg_Ix) = "-verbose" then
+        elsif Argument (Arg_Ix) = "-v" or else Argument (Arg_Ix) = "-verbose" then
             Verbose := True;
-        elsif Argument (Arg_Ix) = "-h" or Argument (Arg_Ix) = "-help "then
+        elsif Argument (Arg_Ix) = "-h" or else Argument (Arg_Ix) = "-help "then
             Put_Line ("Usage of daikin2mqtt:");
             Put_Line ("  -config <config-file>  Configuration file for daikin2mqtt (required)");
             Put_Line ("  -h | -help             Show this help");

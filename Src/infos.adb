@@ -30,7 +30,7 @@ package body Infos is
         return GNAT.Calendar.Time_IO.Image (Ada.Calendar.Clock, Pic);
     end Time_HHMMSS;
 
-    function Parse_Basic_Info (Buffer : in String) return Basic_Info_T is
+    function Parse_Basic_Info (Buffer : String) return Basic_Info_T is
         use GNAT.String_Split;
         KV_Pairs : Slice_Set;
         KVs      : Slice_Set;
@@ -62,7 +62,7 @@ package body Infos is
         return BI;
     end Parse_Basic_Info;
 
-    function Parse_Control_Info (Buffer : in String) return Control_Info_T is
+    function Parse_Control_Info (Buffer : String) return Control_Info_T is
         -- Decode the Control Information response from an inverter which looks like this:
         -- ret=OK,pow=1,mode=4,adv=,stemp=19.0,shum=0,dt1=25.0,dt2=M,dt3=25.0,dt4=19.0,dt5=19.0,
         -- dt7=25.0,dh1=AUTO,dh2=50,dh3=0,dh4=0,dh5=0,dh7=AUTO,dhh=50,b_mode=4,b_stemp=19.0,b_shum=0,
@@ -90,7 +90,7 @@ package body Infos is
                     CI.Mode   := Natural'Value(Val);
                 elsif Key = "stemp" then 
                     -- stemp is returned as a float, but is always integral, 2 exceptions...
-                    if Val = "M" or Val = "--" then 
+                    if Val = "M" or else Val = "--" then 
                         CI.Set_Temp := 0;
                     else
                         CI.Set_Temp := Natural(Float'Value(Val));
@@ -113,7 +113,7 @@ package body Infos is
         return CI;
     end Parse_Control_Info;
 
-    function Parse_Sensor_Info (Buffer : in String) return Sensor_Info_T is
+    function Parse_Sensor_Info (Buffer : String) return Sensor_Info_T is
         -- Inverter returns: ret=OK,htemp=19.0,hhum=-,otemp=14.0,err=0,cmpfreq=50
         use GNAT.String_Split;
         KV_Pairs : Slice_Set;
@@ -150,7 +150,7 @@ package body Infos is
         return SI;
     end Parse_Sensor_Info;
 
-    function Decode_Mode_US (Mode : in Unbounded_String) return Integer is
+    function Decode_Mode_US (Mode : Unbounded_String) return Integer is
         Mode_Num : Integer := 999;
     begin
         Ada.Text_IO.Put_Line     ("DEBUG: Decode_Mode_US got: " & To_String(Mode));
@@ -167,7 +167,7 @@ package body Infos is
         return Mode_Num;
     end Decode_Mode_US;
 
-    function Fan_Sweep_Str_To_Int (Sweep : in String) return Integer is
+    function Fan_Sweep_Str_To_Int (Sweep : String) return Integer is
         Sweep_Num : Integer := 999;
     begin
         for Ix in Fan_Sweep_Arr_T'First .. Fan_Sweep_Arr_T'Last loop
@@ -183,7 +183,7 @@ package body Infos is
     end Fan_Sweep_Str_To_Int;
 
 
-    function Fan_Rate_C_To_US (Code : in Character) return Unbounded_String is
+    function Fan_Rate_C_To_US (Code : Character) return Unbounded_String is
     begin
         case Code is
             when 'A' => return +"AUTO";
@@ -198,7 +198,7 @@ package body Infos is
         end case;
     end Fan_Rate_C_To_US;
 
-    function Fan_Rate_Str_to_C (Rate : in String) return Character is
+    function Fan_Rate_Str_to_C (Rate : String) return Character is
     begin
         if    Rate = "AUTO"    then return 'A';
         elsif Rate = "SILENT"  then return 'B';
@@ -212,7 +212,7 @@ package body Infos is
         end if;
     end Fan_Rate_Str_to_C;
 
-    function Control_Info_To_Cmd (CI : in Control_Info_T) return String is
+    function Control_Info_To_Cmd (CI : Control_Info_T) return String is
         -- result must look like this C sprintf description: "?pow=%s&mode=%s&stemp=%s&f_rate=%s&f_dir=%s&shum=%s"
         Cmd : Unbounded_String;
     begin

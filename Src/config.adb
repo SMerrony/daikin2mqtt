@@ -20,7 +20,7 @@ with TOML.File_IO;
 
 package body Config is
 
-    procedure Load_Config_File (Filename : in String; Verbose : in Boolean) is
+    procedure Load_Config_File (Filename : String; Verbose : Boolean) is
         Toml_Parse_Result : TOML.Read_Result;
     begin
         Toml_Parse_Result := TOML.File_IO.Load_File (Filename);

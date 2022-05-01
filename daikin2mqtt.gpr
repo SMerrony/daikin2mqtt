@@ -42,6 +42,10 @@ project Daikin2MQTT is
       for Switches ("Ada") use ("-Es");
    end Binder;
 
+   package Builder is
+      for Global_Configuration_Pragmas use "gnat.adc";
+   end Builder;
+   
    -- package Linker is
    --    for Leading_Switches ("Ada") use External_As_List("LDFLAGS", " ");
    -- end Linker;

@@ -48,7 +48,6 @@ package Daikin is
         -- TODO this should be extended once the original functionality is done.
         -- Friendly_Name : Unbounded_String;
         IP_Addr       : Unbounded_String;
-        Configured,
         Detected,
         Online        : Boolean;
         Basic_Info    : Basic_Info_T; -- the Daikin info returned when we detect the unit
@@ -66,21 +65,21 @@ package Daikin is
 
     protected State is
 
-        procedure Init (Conf : in Config.Daikin_T; Inv_Conf : in Config.Inverters_T; Verbose : in Boolean);
+        procedure Init (Conf : Config.Daikin_T; Inv_Conf : Config.Inverters_T; Verbose : Boolean);
 
-        function  Get_Inverter_Status (F_Name : in Unbounded_String) return Inverter_Status_T;
+        function  Get_Inverter_Status (F_Name : Unbounded_String) return Inverter_Status_T;
         function  Get_Online_Inverters return Inverter_Name_Arr_T;
-        procedure Set_Inverter_Online (F_Name : in Unbounded_String; Online : in Boolean);
+        procedure Set_Inverter_Online (F_Name : Unbounded_String; Online : Boolean);
 
-        procedure Set_Control_Info (F_Name : in Unbounded_String; CI : in Control_Info_T);
+        procedure Set_Control_Info (F_Name : Unbounded_String; CI : Control_Info_T);
         -- Either create a new CI record, or replace an existing one.
-        procedure Set_Control_Info (IP_Addr : in String; CI : in Control_Info_T);
+        procedure Set_Control_Info (IP_Addr : String; CI : Control_Info_T);
 
-        procedure Set_Sensor_Info (F_Name : in Unbounded_String; SI : in Sensor_Info_T);
+        procedure Set_Sensor_Info (F_Name : Unbounded_String; SI : Sensor_Info_T);
         -- Either create a new SI record, or replace an existing one.
 
-        function Get_IP_Addr (F_Name : in String) return String;
-        function Get_Name (IP_Addr : in String) return String;
+        function Name_To_IP_Addr (F_Name  : String) return String;
+        function IP_Addr_to_Name (IP_Addr : String) return String;
 
         function Is_Verbose return Boolean;
 
@@ -97,7 +96,7 @@ package Daikin is
     end State;
 
     task Monitor_Units is
-        entry Start (Period_S : in Duration);
+        entry Start (Period_S : Duration);
         entry Stop;
     end Monitor_Units;
 
@@ -109,10 +108,10 @@ package Daikin is
 
     type This_App_T is new Mosquitto.Application_Interface with null record;
 
-    procedure MQTT_Connect (Conf : in Config.MQTT_T);
+    procedure MQTT_Connect (Conf : Config.MQTT_T);
     -- Connect to the MQTT broker and start the message pump.
 
-    procedure MQTT_Pub (Subtopic, Payload : in String);
+    procedure MQTT_Pub (Subtopic, Payload : String);
     -- Simple MQTT message publish using our default QoS and retention.
 
     overriding procedure On_Message(Self    : not null access This_App_T;

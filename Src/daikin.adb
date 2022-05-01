@@ -23,7 +23,7 @@ with Daikin_JSON;  use Daikin_JSON;
 
 package body Daikin is
   
-    procedure Fetch_Basic_Info (IP_Addr : in String; BI : out Basic_Info_T; OK : out Boolean) is
+    procedure Fetch_Basic_Info (IP_Addr : String; BI : out Basic_Info_T; OK : out Boolean) is
         Resp   : AWS.Response.Data;
         Status : AWS.Messages.Status_Code;
         Query  : constant String := "http://" & IP_addr & Get_Basic_Info;
@@ -39,27 +39,26 @@ package body Daikin is
             declare 
                 Resp_Body : constant String := AWS.Response.Message_Body (Resp);
             begin
-                Put_Line ("DEBUG: Fetch_Basic_Info got response: " & Resp_Body);
                 BI := Parse_Basic_Info (Resp_Body);
             end;
         end if;
     end Fetch_Basic_Info;
 
-    procedure Fetch_And_Publish_Basic_Info (IP_Addr : in String) is
+    procedure Fetch_And_Publish_Basic_Info (IP_Addr : String) is
         BI : Basic_Info_T;
         OK : Boolean;
     begin
         Fetch_Basic_Info (IP_Addr, BI, OK);
         if OK then
             declare
-                Subtopic : constant String := "/" & State.Get_Name(IP_Addr) & "/basic";
+                Subtopic : constant String := "/" & State.IP_Addr_To_Name(IP_Addr) & "/basic";
             begin
                 MQTT_Pub (Subtopic, BI_To_JSON (BI));
             end;
         end if;
     end Fetch_And_Publish_Basic_Info;
 
-    procedure Fetch_Control_Info (IP_Addr : in String; CI : out Control_Info_T; OK : out Boolean) is
+    procedure Fetch_Control_Info (IP_Addr : String; CI : out Control_Info_T; OK : out Boolean) is
         Resp   : AWS.Response.Data;
         Status : AWS.Messages.Status_Code;
         Query  : constant String := "http://" & IP_addr & Get_Control_Info;
@@ -80,21 +79,21 @@ package body Daikin is
         end if;
     end Fetch_Control_Info;
 
-    procedure Fetch_And_Publish_Control_Info (IP_Addr : in String) is
+    procedure Fetch_And_Publish_Control_Info (IP_Addr : String) is
         CI : Control_Info_T;
         OK : Boolean;
     begin
         Fetch_Control_Info (IP_Addr, CI, OK);
         if OK then
             declare
-                Subtopic : constant String := "/" & State.Get_Name(IP_Addr) & "/controls";
+                Subtopic : constant String := "/" & State.IP_Addr_To_Name(IP_Addr) & "/controls";
             begin
                 MQTT_Pub (Subtopic, CI_To_JSON (CI));
             end;
         end if;
     end Fetch_And_Publish_Control_Info;
 
-    procedure Send_Control_Info (IP_Addr : in String; JSON_CI : in String) is
+    procedure Send_Control_Info (IP_Addr : String; JSON_CI : String) is
         use GNATCOLL.JSON;
         User_Fields : JSON_Value :=  Create;
         New_CI      : Control_Info_T;
@@ -111,11 +110,11 @@ package body Daikin is
             return;
         end if;
         -- do we have the complete minimal set of controls required from the user?
-        if User_Fields.Has_Field ("power") and 
-           User_Fields.Has_Field ("mode")  and
-           User_Fields.Has_Field ("set_temp")  and
-           User_Fields.Has_Field ("set_humidity")  and
-           User_Fields.Has_Field ("fan_rate")  and
+        if User_Fields.Has_Field ("power") and then
+           User_Fields.Has_Field ("mode")  and then
+           User_Fields.Has_Field ("set_temp")  and then
+           User_Fields.Has_Field ("set_humidity")  and then
+           User_Fields.Has_Field ("fan_rate")  and then
            User_Fields.Has_Field ("fan_sweep") then
             -- no point fetching the old data
             New_CI.Power := User_Fields.Get ("power");
@@ -174,7 +173,7 @@ package body Daikin is
             Put_Line("ERROR: Exception caught handling set/controls - ignoring this request.");
     end Send_Control_Info;
 
-    procedure Fetch_Sensor_Info (IP_Addr : in String; SI : out Sensor_Info_T; OK : out Boolean) is
+    procedure Fetch_Sensor_Info (IP_Addr : String; SI : out Sensor_Info_T; OK : out Boolean) is
         Resp   : AWS.Response.Data;
         Status : AWS.Messages.Status_Code;
         Query  : constant String := "http://" & IP_addr & Get_Sensor_Info;
@@ -183,7 +182,7 @@ package body Daikin is
         Resp   := AWS.Client.Get (URL => Query, Timeouts => AWS.Client.Timeouts(Each => 1.0));
         Status := AWS.Response.Status_Code (Resp);
         if Status not in AWS.Messages.Success then
-            Put_Line ("WARNING: Sensor Information request failed with error: " & Status'Image & 
+            Put_Line ("WARNING: Sensor Information request failed with error: " & Status'Image &  
                       " from HTTP query: " & Query);
             OK := False;
         else
@@ -195,14 +194,14 @@ package body Daikin is
         end if;
     end Fetch_Sensor_Info;
 
-    procedure Fetch_And_Publish_Sensor_Info (IP_Addr : in String) is
+    procedure Fetch_And_Publish_Sensor_Info (IP_Addr : String) is
         SI : Sensor_Info_T;
         OK : Boolean;
     begin
         Fetch_Sensor_Info (IP_Addr, SI, OK);
         if OK then
             declare
-                Subtopic : constant String := "/" & State.Get_Name(IP_Addr) & "/sensors";
+                Subtopic : constant String := "/" & State.IP_Addr_To_Name(IP_Addr) & "/sensors";
             begin
                 MQTT_Pub (Subtopic, SI_To_JSON (SI));
             end;
@@ -217,7 +216,7 @@ package body Daikin is
         CI         : Control_Info_T;
         OK         : Boolean;
     begin
-        accept Start (Period_S : in Duration) do
+        accept Start (Period_S : Duration) do
             Period     := Period_S;
             Monitoring := True;
         end Start;
@@ -228,23 +227,31 @@ package body Daikin is
                 Inv_Stat : Inverter_Status_T;
             begin
                 for I_Name of Inv_Arr loop
-                    Put_Line ("DEBUG: Monitor_Units fetching status of: " & To_String (I_Name));
+                    if State.Is_Verbose then
+                        Put_Line ("DEBUG: Monitor_Units fetching status of: " & To_String (I_Name));
+                    end if;
                     Inv_Stat := State.Get_Inverter_Status (I_Name);
                     IP_Addr  := Inv_Stat.IP_Addr;
-                    Put_Line ("DEBUG: ... Monitor_Units fetching Sensor Info");
+                    if State.Is_Verbose then
+                        Put_Line ("DEBUG: ... Monitor_Units fetching Sensor Info");
+                    end if;
                     Fetch_Sensor_Info (IP_Addr => To_String(IP_Addr), SI => SI , OK => OK);
                     if OK then
                         State.Set_Sensor_Info (I_Name, SI);
                         MQTT_Pub ("/" & To_String(I_Name) & "/sensors", SI_To_JSON (SI));
                     end if;
                     delay 0.15;
-                    Put_Line ("DEBUG: ... Monitor_Units fetching Control Info");
+                    if State.Is_Verbose then
+                        Put_Line ("DEBUG: ... Monitor_Units fetching Control Info");
+                    end if;
                     Fetch_Control_Info (IP_Addr => To_String(IP_Addr), CI => CI, OK => OK);
                     if OK then
                         State.Set_Control_Info (I_Name, CI);
                         MQTT_Pub ("/" & To_String(I_Name) & "/controls", CI_To_JSON (CI));
                     end if;
-                    Put_Line ("DEBUG: ... Monitor_Units done for this unit");
+                    if State.Is_Verbose then
+                        Put_Line ("DEBUG: ... Monitor_Units done for this unit");
+                    end if;  
                 end loop;
             end;
             select
@@ -259,7 +266,7 @@ package body Daikin is
 
     protected body State is
 
-        procedure Init (Conf : in Config.Daikin_T; Inv_Conf : in Config.Inverters_T; Verbose : in Boolean) is
+        procedure Init (Conf : Config.Daikin_T; Inv_Conf : Config.Inverters_T; Verbose : Boolean) is
             Inverter_Status : Inverter_Status_T;
             I               : Config.Inverter_T;
             IC              : Status_Maps.Cursor;
@@ -274,7 +281,6 @@ package body Daikin is
                     raise Config.Duplicate_Configuration with "configured multiple times: " & To_String (I.Friendly_Name);
                 end if;
                 Inverter_Status.IP_Addr     := I.IP_Addr;
-                Inverter_Status.Configured  := True;
                 Inverter_Status.Detected    := False;
                 Inverter_Status.Online      := False;
                 Status_Maps.Insert (Container  => Inverter_Statuses, 
@@ -306,7 +312,7 @@ package body Daikin is
             Put_Line ("INFO:" & Status_Maps.Length (Inverter_Statuses)'Image & " Inverters configured");
         end Init;
 
-        function Get_Inverter_Status (F_Name : in Unbounded_String) return Inverter_Status_T is
+        function Get_Inverter_Status (F_Name : Unbounded_String) return Inverter_Status_T is
             Inv : Inverter_Status_T;
         begin
             if Inverter_Statuses.Contains (F_Name) then
@@ -342,7 +348,7 @@ package body Daikin is
             end;
         end Get_Online_Inverters;
 
-        procedure Set_Control_Info (F_Name : in Unbounded_String; CI : in Control_Info_T) is
+        procedure Set_Control_Info (F_Name : Unbounded_String; CI : Control_Info_T) is
         begin
             if Inverter_Controls.Contains (F_Name) then
                 Control_Maps.Replace_Element (Container => Inverter_Controls, 
@@ -355,7 +361,7 @@ package body Daikin is
             end if;
         end Set_Control_Info;
 
-        procedure Set_Control_Info (IP_Addr : in String; CI : in Control_Info_T) is
+        procedure Set_Control_Info (IP_Addr : String; CI : Control_Info_T) is
         begin
             if Inverter_Xrefs.Contains (Inverters_IP_To_Name, +IP_Addr) then
                 Set_Control_Info (Inverters_IP_To_Name(+IP_Addr), CI);
@@ -364,7 +370,7 @@ package body Daikin is
             end if;
         end Set_Control_Info;
 
-        procedure Set_Sensor_Info (F_Name : in Unbounded_String; SI : in Sensor_Info_T) is
+        procedure Set_Sensor_Info (F_Name : Unbounded_String; SI : Sensor_Info_T) is
         begin
             if Inverter_Sensors.Contains (F_Name) then
                 Sensor_Maps.Replace_Element (Container => Inverter_Sensors, 
@@ -377,7 +383,7 @@ package body Daikin is
             end if;
         end Set_Sensor_Info;
 
-        procedure Set_Inverter_Online (F_Name : in Unbounded_String; Online : in Boolean) is
+        procedure Set_Inverter_Online (F_Name : Unbounded_String; Online : Boolean) is
             Inv_Stat : Inverter_Status_T := Get_Inverter_Status (F_Name);
         begin
             Inv_Stat.Online := Online;
@@ -386,22 +392,18 @@ package body Daikin is
                                          New_Item  => Inv_Stat);
         end Set_Inverter_Online;
 
-        function Get_IP_Addr (F_Name : in String) return String is
-        begin
-            return To_String (Inverter_Statuses(To_Unbounded_String(F_Name)).IP_Addr);
-        end Get_IP_Addr;
+        function Name_To_IP_Addr (F_Name : String) return String is
+            (To_String (Inverter_Statuses(To_Unbounded_String(F_Name)).IP_Addr));
 
-        function Get_Name (IP_Addr : in String) return String is
+        function IP_Addr_To_Name (IP_Addr : String) return String is
             (To_String (Inverters_IP_To_Name(+IP_Addr)));
 
         function Is_Verbose return Boolean is
-        begin
-            return Verbose;
-        end Is_Verbose;   
+            (Verbose);  
 
     end State;
 
-    procedure MQTT_Connect (Conf : in Config.MQTT_T) is
+    procedure MQTT_Connect (Conf : Config.MQTT_T) is
     begin
         MQTT_Conf    := Conf;
         Mosq_Handle.Initialize (ID => MQTT_ID, Clean_Sessions => True);
@@ -420,7 +422,7 @@ package body Daikin is
                              Retain  => False);
     end MQTT_Connect;
 
-    procedure MQTT_Pub (Subtopic, Payload : in String) is
+    procedure MQTT_Pub (Subtopic, Payload : String) is
     begin
         Mosq_Handle.Publish (Topic   => To_String (MQTT_Conf.Base_Topic) & Subtopic, 
                              Payload => Payload, 
@@ -453,17 +455,17 @@ package body Daikin is
             begin
                 if Slice (Subtopics, 3) = "get" then
                     if Slice (Subtopics, 4) = "basic" then
-                        Fetch_And_Publish_Basic_Info (State.Get_IP_Addr(F_Name));
+                        Fetch_And_Publish_Basic_Info (State.Name_To_IP_Addr(F_Name));
                     elsif Slice (Subtopics, 4) = "controls" then
-                        Fetch_And_Publish_Control_Info (State.Get_IP_Addr(F_Name));
+                        Fetch_And_Publish_Control_Info (State.Name_To_IP_Addr(F_Name));
                     elsif Slice (Subtopics, 4) = "sensors" then
-                        Fetch_And_Publish_Sensor_Info (State.Get_IP_Addr(F_Name)); 
+                        Fetch_And_Publish_Sensor_Info (State.Name_To_IP_Addr(F_Name)); 
                     else
                         Put_Line ("WARNING: Unknown 'get' request with topic: " & Topic);
                     end if;
                 elsif Slice (Subtopics, 3) = "set" then
                     if Slice (Subtopics, 4) = "controls" then
-                        Send_Control_Info (State.Get_IP_Addr(F_Name), Overlaid_Data);
+                        Send_Control_Info (State.Name_To_IP_Addr(F_Name), Overlaid_Data);
                     else
                         Put_Line ("WARNING: Unknown 'set' request with topic: " & Topic);
                     end if;
@@ -478,11 +480,13 @@ package body Daikin is
 
     task body Pump_T is
     begin
-        accept Start;
-        -- if Verbose then
-        --     Put_Line ("DEBUG: MQTT message pump started");
-        -- end if;
-        Connection.Loop_Forever;
+        accept Start do
+            Put_Line ("INFO: MQTT task started");
+        end Start;
+        -- The Timeout value below seems to directly influence the 'idle' CPU
+        -- usage of the message pump...
+        Connection.Loop_Forever (Timeout => 10.0);
+        Put_Line ("ERROR: MQTT loop has exited - this should not happen.");
     end Pump_T;
 
 end Daikin;

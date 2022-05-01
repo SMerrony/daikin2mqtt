@@ -70,16 +70,16 @@ package Infos is
         Timestamp     : String(1..8);
     end record;
 
-    function Parse_Basic_Info   (Buffer : in String) return Basic_Info_T;
-    function Parse_Control_Info (Buffer : in String) return Control_Info_T;
-    function Parse_Sensor_Info  (Buffer : in String) return Sensor_Info_T;
+    function Parse_Basic_Info   (Buffer : String) return Basic_Info_T;
+    function Parse_Control_Info (Buffer : String) return Control_Info_T;
+    function Parse_Sensor_Info  (Buffer : String) return Sensor_Info_T;
 
-    function Decode_Mode_US     (Mode : in Unbounded_String) return Integer;
-    function Fan_Sweep_Str_To_Int (Sweep : in String)   return Integer;
-    function Fan_Rate_C_To_US   (Code : in Character) return Unbounded_String;
-    function Fan_Rate_Str_to_C  (Rate : in String)    return Character;
+    function Decode_Mode_US     (Mode : Unbounded_String) return Integer;
+    function Fan_Sweep_Str_To_Int (Sweep : String)   return Integer;
+    function Fan_Rate_C_To_US   (Code : Character) return Unbounded_String;
+    function Fan_Rate_Str_to_C  (Rate : String)    return Character;
 
-    function Control_Info_To_Cmd (CI : in Control_Info_T) return String;
+    function Control_Info_To_Cmd (CI : Control_Info_T) return String;
 
     Invalid_Fan_Sweep_String,
     Invalid_Fan_Rate_Character,

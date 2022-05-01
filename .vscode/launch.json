@@ -11,13 +11,9 @@
           "cwd": "${workspaceFolder}",
           "environment": [],
           "MIMode": "gdb",
-          "setupCommands": [
-             {
-                "description": "Enable pretty-printing for gdb",
-                "text": "-enable-pretty-printing",
-                "ignoreFailures": true
-             }
-          ]
+          "valuesFormatting": "parseText",
+          "preLaunchTask": "ada: Build current project",
        }
     ]
+
  }
