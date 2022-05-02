@@ -24,6 +24,11 @@ with GNATCOLL.JSON;
 with Daikin_JSON;  use Daikin_JSON;
 
 package body Daikin is
+
+    procedure Info (Message : String) is
+    begin
+        Put_Line (Ada.Calendar.Formatting.Image (Ada.Calendar.Clock) & " INFO: " & Message);
+    end Info;
   
     procedure Warning (Message : String) is
     begin
@@ -114,7 +119,7 @@ package body Daikin is
         Status      : AWS.Messages.Status_Code;
     begin
         if State.Is_Verbose then
-            Put_Line ("INFO: Send_Control_Info got: " & JSON_CI);
+            Info ("Send_Control_Info got: " & JSON_CI);
         end if;
         User_Fields := Read (JSON_CI);
         if User_Fields = JSON_Null then
@@ -170,7 +175,7 @@ package body Daikin is
         end if;
         delay 0.15;
         if State.Is_Verbose then
-            Put_Line ("INFO: Will send set command: " & "http://" & IP_Addr & Set_Control_Info & Control_Info_To_Cmd (New_CI));
+            Info ("Will send set command: " & "http://" & IP_Addr & Set_Control_Info & Control_Info_To_Cmd (New_CI));
         end if;
         Resp   := AWS.Client.Get (URL => "http://" & IP_Addr & Set_Control_Info & Control_Info_To_Cmd (New_CI), Timeouts => AWS.Client.Timeouts(Each => 2.0));
         Status := AWS.Response.Status_Code (Resp);
@@ -232,7 +237,7 @@ package body Daikin is
             Period     := Period_S;
             Monitoring := True;
         end Start;
-        Put_Line ("INFO: Monitor_Units task started");
+        Info ("Monitor_Units task started");
         while Monitoring loop
             declare
                 Inv_Arr  : constant Inverter_Name_Arr_T := State.Get_Online_Inverters;
@@ -273,7 +278,7 @@ package body Daikin is
                     Monitoring := False;
             end select;     
         end loop;
-        Put_Line ("INFO: Monitor_Units task has exited");
+        Info ("Monitor_Units task has exited");
     end Monitor_Units;
 
     protected body State is
@@ -307,7 +312,7 @@ package body Daikin is
                 end if;
 
                 if Verbose then
-                    Put_Line ("INFO: Checking inverter: " & To_String (I.Friendly_Name));
+                    Info ("Checking inverter: " & To_String (I.Friendly_Name));
                 end if;
                 Fetch_Basic_Info (IP_Addr => To_String (I.IP_Addr), 
                                   BI => BI, 
@@ -321,7 +326,7 @@ package body Daikin is
                 Set_Inverter_Online (I.Friendly_Name, True);
                 Inverters_IP_To_Name.Include (I.IP_Addr, I.Friendly_Name); 
             end loop;
-            Put_Line ("INFO:" & Status_Maps.Length (Inverter_Statuses)'Image & " Inverters configured");
+            Info ("" & Status_Maps.Length (Inverter_Statuses)'Image & " Inverters configured");
         end Init;
 
         function Get_Inverter_Status (F_Name : Unbounded_String) return Inverter_Status_T is
@@ -344,7 +349,7 @@ package body Daikin is
                 end if;
             end loop;
             if Verbose then
-                Put_Line ("INFO: Get_Online_Inverters will return" & Online_Count'Image & " inverters");
+                Info ("Get_Online_Inverters will return" & Online_Count'Image & " inverters");
             end if;
             declare
                 INA : Inverter_Name_Arr_T (1 .. Online_Count);
@@ -493,7 +498,7 @@ package body Daikin is
     task body Pump_T is
     begin
         accept Start do
-            Put_Line ("INFO: MQTT task started");
+            Info ("MQTT task started");
         end Start;
         -- The Timeout value below seems to directly influence the 'idle' CPU
         -- usage of the message pump...
