@@ -22,7 +22,7 @@ with Ada.Text_IO;
 with GNAT.Calendar.Time_IO;
 with GNAT.String_Split;
 
-package body Infos is
+package body Daikin_Data is
 
     function Time_HHMMSS return String is
         Pic : constant GNAT.Calendar.Time_IO.Picture_String := "%H:%M:%S";
@@ -230,4 +230,4 @@ package body Infos is
         return To_String (Cmd);
     end Control_Info_To_Cmd;
 
-end Infos;
+end Daikin_Data;

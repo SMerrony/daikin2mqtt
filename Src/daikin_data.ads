@@ -15,7 +15,7 @@
 
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 
-package Infos is
+package Daikin_Data is
 
     function "+"(S : String) return Unbounded_String renames Ada.Strings.Unbounded.To_Unbounded_String;
 
@@ -86,4 +86,4 @@ package Infos is
     Invalid_Fan_Rate_String,
     Invalid_Mode_String : exception;
     
-end Infos;
+end Daikin_Data;

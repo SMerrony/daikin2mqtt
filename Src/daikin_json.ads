@@ -15,7 +15,7 @@
 
 -- with Ada.Containers.Ordered_Maps;
 
-with Infos;     use Infos;
+with Daikin_Data;     use Daikin_Data;
 
 package Daikin_JSON is
 

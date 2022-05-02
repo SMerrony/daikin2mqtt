@@ -24,9 +24,7 @@ package body Config is
         Toml_Parse_Result : TOML.Read_Result;
     begin
         Toml_Parse_Result := TOML.File_IO.Load_File (Filename);
-        if Toml_Parse_Result.Success then
-            Put_Line ("INFO: " & Filename & " loaded");
-        else 
+        if not Toml_Parse_Result.Success then
             raise Could_Not_Parse with To_String (Toml_Parse_Result.Message);
         end if;
 

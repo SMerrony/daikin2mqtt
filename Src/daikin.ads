@@ -22,7 +22,7 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Mosquitto; use Mosquitto;
 
 with Config;
-with Infos;     use Infos;
+with Daikin_Data;     use Daikin_Data;
 
 package Daikin is
 
