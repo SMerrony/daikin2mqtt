@@ -10,4 +10,10 @@
   * `mosquitto` (mosquitto-ada) from https://github.com/persan/mosquitto-ada
 * `libaws19-dev` (or later)
 * `libgnatcoll-dev`
+
+## Deployment
+To deploy the binary Linux version you will need to ensure the following packages are installed...
+
+* libmosquitto1
+* 
   
