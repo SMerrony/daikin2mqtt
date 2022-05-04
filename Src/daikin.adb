@@ -233,10 +233,14 @@ package body Daikin is
         CI         : Control_Info_T;
         OK         : Boolean;
     begin
-        accept Start (Period_S : Duration) do
-            Period     := Period_S;
-            Monitoring := True;
-        end Start;
+        select
+            accept Start (Period_S : Duration) do
+                Period     := Period_S;
+                Monitoring := True;
+            end Start;
+        or 
+            terminate;
+        end select;
         Info ("Monitor_Units task started");
         while Monitoring loop
             declare
@@ -495,9 +499,13 @@ package body Daikin is
 
     task body Pump_T is
     begin
-        accept Start do
-            Info ("MQTT task started");
-        end Start;
+        select
+            accept Start do
+                Info ("MQTT task started");
+            end Start;
+        or
+            terminate;
+        end select;
         -- The Timeout value below seems to directly influence the 'idle' CPU
         -- usage of the message pump...
         Connection.Loop_Forever (Timeout => 10.0);
