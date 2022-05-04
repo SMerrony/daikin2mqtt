@@ -1,0 +1,15 @@
+[Unit]
+Description=daikin2mqtt Daikin HVAC to MQTT Bridge
+
+Wants=network-online.target
+After=syslog.target network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/daikin2mqtt -conf /usr/local/etc/daikin2mqtt.conf
+Restart=on-failure
+RestartSec=10
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

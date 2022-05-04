@@ -1,0 +1,70 @@
+-- Copyright ©2022 Steve Merrony
+
+-- Daikin2MQTT is free software: you can redistribute it and/or modify
+-- it under the terms of the GNU General Public License as published by
+-- the Free Software Foundation, either version 3 of the License, or
+-- (at your option) any later version.
+--
+-- Daikin2MQTT is distributed in the hope that it will be useful,
+-- but WITHOUT ANY WARRANTY; without even the implied warranty of
+-- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+-- GNU General Public License for more details.
+--
+-- You should have received a copy of the GNU General Public License
+-- along with Daikin2MQTT.  If not, see <https://www.gnu.org/licenses/>.
+
+with "ada_toml.gpr";    -- installed locally
+with "aws";             -- installed via system package manager
+with "gnatcoll.gpr";    -- installed via system package manager
+with "mosquitto.gpr";   -- installed locally
+
+project Daikin2MQTT is
+   type Mode_Type is ("debug", "release");         -- all possible values
+   Mode : Mode_Type := external ("mode", "debug"); -- default
+
+   for Languages use ("Ada");
+   for Main use ("daikin2mqtt.adb");
+   for Source_Dirs use ("Src");
+   for Object_Dir use "obj";
+   for Exec_Dir use "./";   
+   
+   package Compiler is
+      case Mode is
+         when "debug" =>
+            -- for Switches ("Ada") use ("-g", "-O0", "-E", "-gnata", "-gnatVa", "-gnato11", "-gnatw.f", "-gnateE", "-gnatwa", "-fstack-check");
+            for Switches ("Ada") use ( "-fstack-check", 
+                                       "-g", 
+                                       "-gnata", 
+                                       "-gnateE", 
+                                       "-gnatwa", 
+                                       "-O0" 
+                                       );
+
+         when "release" =>
+            for Switches ("Ada") use ("-flto", "-O3");
+      end case;
+   end Compiler;
+
+   package Binder is
+      case Mode is
+         when "debug" =>
+            for Switches ("Ada") use ("-Es");
+         when "release" =>
+            for Switches ("Ada") use ("-Es");
+      end case;
+   end Binder;
+
+   package Builder is
+      for Global_Configuration_Pragmas use "gnat.adc";
+   end Builder;
+   
+   package Linker is
+      case Mode is
+         when "debug" =>
+            for Switches ("Ada") use ("-g");
+         when "release" =>
+            for Switches ("Ada") use ("-flto", "-O3");
+      end case;
+   end Linker;
+
+end Daikin2MQTT;

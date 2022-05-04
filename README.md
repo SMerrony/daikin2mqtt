@@ -8,14 +8,13 @@ It is neither endorsed nor supported by Daikin in any way whatsoever. You use th
 ## Description and Purpose
 This project provides a two-way link between some Daikin HVAC units' WiFi interfaces and your MQTT IoT network.
 
-*daikin2mqtt* runs as a background service or *daemon* to keep track of the availability of the HVAC units and provide an easy to use MQTT interface with which you can monitor and control the system.
+*daikin2mqtt* runs as a background service or *daemon* to keep track of the availability of the HVAC units and provide an easy to use MQTT interface with which you can monitor and control the system.  It sends regular updates via MQTT which are ideal for use on a dashboard or for data logging.
 
 ## User Guide
 See [our Wiki](https://github.com/SMerrony/daikin2mqtt/wiki).
 
 ## Rationale and Inspiration
-The connectivity of these HVAC units is known to be rather temperamental; units seem to appear and disappear occasionally 
-even on well-configured WiFi networks.  This project aims to smooth out these wrinkles as much as possible and provide a **simple to use MQTT interface that will be accessible by most home automation systems and MQTT dashboards.**
+The connectivity of these HVAC units is known to be rather temperamental; units seem to appear and disappear occasionally even on well-configured WiFi networks.  This project aims to smooth out these wrinkles as much as possible and provide a **simple to use MQTT interface that will be accessible by most home automation systems and MQTT dashboards.**
 
 We adopt the old Unix&trade; philosophy of trying to 'do just one thing and do it well'.
 
@@ -43,7 +42,7 @@ We do _not_ expect the BRP072Cnn or SKYFi units to work.
 Please let us know if you can add to the above information.
 
 ## Licence and Copyright
-Copyright © 2021 Stephen Merrony
+Copyright ©2021,2022 Stephen Merrony
 
 Daikin2MQTT is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
