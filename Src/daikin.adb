@@ -49,8 +49,8 @@ package body Daikin is
         Resp   := AWS.Client.Get (URL => Query, Timeouts => AWS.Client.Timeouts(Each => 1.0));
         Status := AWS.Response.Status_Code (Resp);
         if Status not in AWS.Messages.Success then
-            Warning ("Basic Information request failed with error: " & Status'Image & 
-                      " from HTTP query: " & Query);
+            Warning ("Basic Information request for " & State.IP_Addr_to_Name (IP_Addr) &
+                     " failed with error: " & Status'Image);
             OK := False;
         else
             declare 
@@ -84,8 +84,8 @@ package body Daikin is
         Resp   := AWS.Client.Get (URL => Query, Timeouts => AWS.Client.Timeouts(Each => 1.0));
         Status := AWS.Response.Status_Code (Resp);
         if Status not in AWS.Messages.Success then
-            Warning ("Control Information request failed with error: " & Status'Image & 
-                      " from HTTP query: " & Query);
+            Warning ("Control Information request for " & State.IP_Addr_to_Name (IP_Addr) &
+                     " failed with error: " & Status'Image);
             OK := False;
         else
             declare 
@@ -199,8 +199,8 @@ package body Daikin is
         Resp   := AWS.Client.Get (URL => Query, Timeouts => AWS.Client.Timeouts(Each => 1.0));
         Status := AWS.Response.Status_Code (Resp);
         if Status not in AWS.Messages.Success then
-            Warning ("Sensor Information request failed with error: " & Status'Image &  
-                      " from HTTP query: " & Query);
+            Warning ("Sensor Information request for " & State.IP_Addr_to_Name (IP_Addr) &
+                     " failed with error: " & Status'Image);
             OK := False;
         else
             declare 
@@ -287,7 +287,7 @@ package body Daikin is
             Inverter_Status : Inverter_Status_T;
             I               : Config.Inverter_T;
             IC              : Status_Maps.Cursor;
-            BI              : Basic_Info_T;
+            -- BI              : Basic_Info_T;
             OK              : Boolean;
         begin
             State.Verbose := Verbose;
@@ -305,26 +305,24 @@ package body Daikin is
                                       New_Item => Inverter_Status, 
                                       Position => IC, 
                                       Inserted => OK);
-                if not OK then
-                    Error ("Could not configure inverter: " & To_String(I.Friendly_Name));
-                elsif Verbose then
+                if Verbose then
                     Put_Line ("DEBUG: Configured inverter: " & To_String(I.Friendly_Name));
                 end if;
-
-                if Verbose then
-                    Info ("Checking inverter: " & To_String (I.Friendly_Name));
-                end if;
-                Fetch_Basic_Info (IP_Addr => To_String (I.IP_Addr), 
-                                  BI => BI, 
-                                  OK => OK);
-                if not OK then
-                    Warning ("Failed to detect " & To_String (I.Friendly_Name) & 
-                                " - Will assume it's out there!");
-                else
-                    Inverter_Status.Basic_Info := BI;
-                end if;
-                Set_Inverter_Online (I.Friendly_Name, True);
                 Inverters_IP_To_Name.Include (I.IP_Addr, I.Friendly_Name); 
+                -- if Verbose then
+                --     Info ("Checking inverter: " & To_String (I.Friendly_Name));
+                -- end if;
+                -- WE CAN'T DO THIS HERE (USE OF PROTECTED INSIDE PROTTECTED IN F_B_I)
+                -- Fetch_Basic_Info (IP_Addr => To_String (I.IP_Addr), 
+                --                   BI => BI, 
+                --                   OK => OK);
+                -- if not OK then
+                --     Warning ("Failed to detect " & To_String (I.Friendly_Name) & 
+                --                 " - Will assume it's out there!");
+                -- else
+                --     Inverter_Status.Basic_Info := BI;
+                -- end if;
+                Set_Inverter_Online (I.Friendly_Name, True);
             end loop;
             Info ("" & Status_Maps.Length (Inverter_Statuses)'Image & " Inverters configured");
         end Init;
@@ -460,10 +458,10 @@ package body Daikin is
         Overlaid_Data : String (Natural (Payload'First) .. Natural (Payload'Last));
         pragma Import (C, Overlaid_Data);
         for Overlaid_Data'Address use Payload'Address;
-        Verbose : constant Boolean := True; -- FIXME
+        Verbose : constant Boolean := State.Is_Verbose; 
     begin
         if Verbose then
-            Put_Line ("DEBUG: MQTT got message in topic: " & Topic & " with payload: " & Overlaid_Data);
+            Info ("MQTT got message in topic: " & Topic & " with payload: " & Overlaid_Data);
         end if;
         Create (S => Subtopics, From => Topic, Separators => "/");
         if Slice_Count (Subtopics) = 4 then

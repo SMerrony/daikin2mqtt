@@ -15,5 +15,7 @@
 To deploy the binary Linux version you will need to ensure the following packages are installed...
 
 * libmosquitto1
-* 
+* libgnat-9
+* libgnatcoll18
+* libaws5
   

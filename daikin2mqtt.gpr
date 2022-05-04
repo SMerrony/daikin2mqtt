@@ -31,23 +31,40 @@ project Daikin2MQTT is
    package Compiler is
       case Mode is
          when "debug" =>
-            for Switches ("Ada") use ("-g", "-O0", "-E", "-gnata", "-gnatVa", "-gnato11", "-gnatw.f", "-gnateE", "-gnatwa", "-fstack-check");
-            --  "-gnatJ", "-gnatel"
+            -- for Switches ("Ada") use ("-g", "-O0", "-E", "-gnata", "-gnatVa", "-gnato11", "-gnatw.f", "-gnateE", "-gnatwa", "-fstack-check");
+            for Switches ("Ada") use ( "-fstack-check", 
+                                       "-g", 
+                                       "-gnata", 
+                                       "-gnateE", 
+                                       "-gnatwa", 
+                                       "-O0" 
+                                       );
+
          when "release" =>
-            for Switches ("Ada") use ("-O3");
+            for Switches ("Ada") use ("-flto", "-O3");
       end case;
    end Compiler;
 
    package Binder is
-      for Switches ("Ada") use ("-Es");
+      case Mode is
+         when "debug" =>
+            for Switches ("Ada") use ("-Es");
+         when "release" =>
+            for Switches ("Ada") use ("-Es");
+      end case;
    end Binder;
 
    package Builder is
       for Global_Configuration_Pragmas use "gnat.adc";
    end Builder;
    
-   -- package Linker is
-   --    for Leading_Switches ("Ada") use External_As_List("LDFLAGS", " ");
-   -- end Linker;
+   package Linker is
+      case Mode is
+         when "debug" =>
+            for Switches ("Ada") use ("-g");
+         when "release" =>
+            for Switches ("Ada") use ("-flto", "-O3");
+      end case;
+   end Linker;
 
 end Daikin2MQTT;
