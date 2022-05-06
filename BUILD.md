@@ -3,7 +3,7 @@
 ## For Production Use...
 `gprbuild -Xmode=release`
 
-## Prerequisites for builing from source
+## Prerequisites for building from source
  * *daikin2mqtt* is written in Ada - you will need GNAT Ada version 9.4 or later installed to build the software.
 * `ada-toml` from https://github.com/pmderodat/ada-toml
 * MQTT-related...
